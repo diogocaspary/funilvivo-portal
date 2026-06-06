@@ -249,8 +249,12 @@ async function viewCanais(){
         <div><label>Porta</label><input id="e_port" value="587"></div>
       </div>
       <div class="formrow">
-        <div><label>Usuário SMTP</label><input id="e_user" placeholder="contato@funilvivo.com.br"></div>
-        <div><label>Senha SMTP</label><input id="e_pass" type="password" placeholder="••••••••"></div>
+        <div><label>Usuário SMTP</label><input id="e_user" placeholder="comercial@funilvivo.com.br"></div>
+        <div><label>Senha</label><input id="e_pass" type="password" placeholder="••••••••"></div>
+      </div>
+      <div class="formrow">
+        <div><label>Servidor IMAP (entrada)</label><input id="e_imaphost" placeholder="imap.hostinger.com"></div>
+        <div><label>Porta IMAP</label><input id="e_imapport" value="993"></div>
       </div>
       <button class="btn block" id="addEmail">Salvar e-mail</button>
       <div class="msg" id="emailMsg"></div>
@@ -291,6 +295,16 @@ async function viewCanais(){
       <div id="qrBody" class="muted">Gerando QR…</div>
       <button class="btn block" id="qrClose" style="margin-top:14px">Fechar</button>
     </div>
+  </div>
+
+  <div id="inboxModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:24px">
+    <div style="background:#fff;border-radius:14px;padding:20px;max-width:760px;width:100%">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0;color:#1F3864;font-size:16px">📥 Caixa de entrada</h2>
+        <button class="btn sm sec" id="inboxClose">Fechar</button>
+      </div>
+      <div id="inboxBody" class="muted">Carregando…</div>
+    </div>
   </div>`;
 
   $("#addEmail").onclick = addEmail;
@@ -304,7 +318,8 @@ function rowEmail(c){
     <td class="muted">${esc(c.smtp_host||"")}:${esc(c.smtp_port||"")}</td>
     <td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td>
     <td>${c.ativo?"Sim":"Não"}</td>
-    <td><button class="btn sm ghost" data-tgl-email="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
+    <td style="white-space:nowrap"><button class="btn sm" data-inbox-email="${c.id}">📥 Caixa</button>
+        <button class="btn sm ghost" data-tgl-email="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
         <button class="btn sm sec" data-del-email="${c.id}">Excluir</button></td>
   </tr>`;
 }
@@ -326,7 +341,8 @@ function rowWa(c){
 async function addEmail(){
   const m=$("#emailMsg"); m.className="msg";
   const rec={ nome:$("#e_nome").value.trim(), from_nome:$("#e_fromnome").value.trim(), from_email:$("#e_email").value.trim(),
-    smtp_host:$("#e_host").value.trim(), smtp_port:parseInt($("#e_port").value)||587, smtp_user:$("#e_user").value.trim(), smtp_senha:$("#e_pass").value };
+    smtp_host:$("#e_host").value.trim(), smtp_port:parseInt($("#e_port").value)||587, smtp_user:$("#e_user").value.trim(), smtp_senha:$("#e_pass").value,
+    imap_host:$("#e_imaphost").value.trim(), imap_port:parseInt($("#e_imapport").value)||993 };
   if(!rec.nome||!rec.from_email){ m.className="msg err"; m.textContent="Preencha apelido e e-mail."; return; }
   m.textContent="Salvando…";
   const { error } = await sb.from("canais_email").insert(rec);   // sem .select() → senha não volta
@@ -351,6 +367,9 @@ function bindChannelActions(){
   document.querySelectorAll("[data-del-email]").forEach(b=>b.onclick=async()=>{
     if(confirm("Excluir este e-mail?")){ await sb.from("canais_email").delete().eq("id", b.dataset.delEmail); viewCanais(); }
   });
+  document.querySelectorAll("[data-inbox-email]").forEach(b=>b.onclick=()=>openInbox(b.dataset.inboxEmail));
+  const inboxModal=$("#inboxModal"), inboxCloseBtn=$("#inboxClose");
+  if(inboxCloseBtn) inboxCloseBtn.onclick=()=>{ inboxModal.style.display="none"; };
   document.querySelectorAll("[data-tgl-wa]").forEach(b=>b.onclick=async()=>{
     await sb.from("canais_whatsapp").update({ativo: b.dataset.now!=="true"}).eq("id", b.dataset.tglWa); viewCanais();
   });
@@ -395,6 +414,37 @@ async function openQr(id){
   window._qrTimer=setInterval(async()=>{
     try{ const s=await apiCall(`/wa/${id}/status`); if(s.state==="open"){ clearInterval(window._qrTimer); body.innerHTML='<div class="msg ok" style="font-size:15px">✅ Conectado!</div>'; setTimeout(()=>{modal.style.display="none";viewCanais();},1500);} }catch(_){}
   }, 5000);
+}
+
+async function openInbox(id){
+  const modal=$("#inboxModal"), body=$("#inboxBody");
+  modal.style.display="flex"; body.innerHTML="Carregando caixa…";
+  try{
+    const r=await apiCall(`/email/${id}/inbox`);
+    if(!r.messages || !r.messages.length){ body.innerHTML='<div class="muted">Nenhum e-mail na caixa (ou IMAP ainda não configurado neste canal).</div>'; return; }
+    body.innerHTML = `<table><thead><tr><th>De</th><th>Assunto</th><th>Data</th></tr></thead><tbody>${
+      r.messages.map(m=>`<tr style="cursor:pointer" data-msg="${m.seq}">
+        <td>${m.unseen?'<b>':''}${esc(m.fromName||m.from)}${m.unseen?'</b>':''}<div class="muted">${esc(m.from)}</div></td>
+        <td>${esc(m.subject)}</td>
+        <td class="muted">${m.date?new Date(m.date).toLocaleString('pt-BR'):''}</td>
+      </tr>`).join("")
+    }</tbody></table>`;
+    body.querySelectorAll("[data-msg]").forEach(tr=>tr.onclick=()=>openMessage(id, tr.dataset.msg));
+  }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+}
+async function openMessage(id, seq){
+  const body=$("#inboxBody");
+  body.innerHTML="Abrindo mensagem…";
+  try{
+    const r=await apiCall(`/email/${id}/message?seq=${seq}`);
+    const m=r.message||{};
+    body.innerHTML = `<button class="btn sm ghost" id="inboxBack">← Voltar</button>
+      <div style="margin-top:10px"><b>${esc(m.subject||"(sem assunto)")}</b></div>
+      <div class="muted">De: ${esc(m.from)} · ${m.date?new Date(m.date).toLocaleString('pt-BR'):''}</div>
+      <hr style="border:none;border-top:1px solid #eee;margin:10px 0">
+      <div style="white-space:pre-wrap;font-size:13px">${esc(m.text||"(sem texto)")}</div>`;
+    $("#inboxBack").onclick=()=>openInbox(id);
+  }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
 }
 
 async function viewCliente(){
