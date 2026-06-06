@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Funil Vivo — Portal</title>
+<style>
+:root { color-scheme: light; }
+*{box-sizing:border-box}
+body{margin:0;background:#f5f7fa;color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:14px}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+.brand{font-size:26px;font-weight:800;color:#1F3864;letter-spacing:.5px}
+.brand span{color:#2E75B6}
+/* login */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.loginbox{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+.loginbox .brand{text-align:center;font-size:30px;margin-bottom:4px}
+.loginbox .tag{text-align:center;color:#6b7280;margin-bottom:22px;font-size:13px}
+label{display:block;font-size:12px;color:#6b7280;margin:10px 0 4px;font-weight:600}
+input{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}
+input:focus{outline:none;border-color:#2E75B6}
+.btn{border:none;border-radius:9px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:16px;background:#2E75B6;color:#fff}
+.btn:hover{background:#255f96}
+.btn.sec{background:#fff;color:#b91c1c;border:1px solid #fca5a5;width:auto;padding:7px 14px;font-size:12px;margin:0}
+.msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+.msg.err{color:#b91c1c}.msg.ok{color:#15803d}
+/* app */
+#app{display:none}
+.topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.who{color:#6b7280;font-size:13px}
+.badge{display:inline-block;background:#eef2ff;color:#4338ca;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;margin-left:6px;text-transform:uppercase}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0}
+.kpi{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px}
+.kpi .label{color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.kpi .val{font-size:24px;font-weight:800;margin-top:4px}
+.kpi .val.blue{color:#2E75B6}.kpi .val.green{color:#15803d}.kpi .val.amber{color:#b45309}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{margin:0 0 12px;font-size:15px;color:#1F3864}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #f0f0f0}
+th{color:#6b7280;font-weight:600;font-size:12px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.s-ativo,.s-publicado,.s-ativa,.s-concluida{background:#dcfce7;color:#15803d}
+.s-onboarding,.s-fazendo,.s-rascunho,.s-aprovacao{background:#dbeafe;color:#1d4ed8}
+.s-pendente,.s-pausada,.s-ideia{background:#fef9c3;color:#854d0e}
+.s-bloqueada{background:#fee2e2;color:#b91c1c}
+.metric{display:inline-block;background:#f1f5f9;border-radius:8px;padding:6px 10px;margin:0 8px 8px 0;font-size:12px}
+.metric b{color:#2E75B6}
+.log{font-size:13px;padding:8px 0;border-bottom:1px solid #f0f0f0}.log b{color:#1F3864}.log .r{color:#4b5563}
+.muted{color:#9ca3af;font-size:12px}
+.appr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid #ffe69c;background:#fffdf5;border-radius:9px;margin-bottom:8px}
+.stage{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.stage .bar{height:22px;background:linear-gradient(90deg,#2E75B6,#5b9bd5);border-radius:5px;min-width:4px}
+.stage .lbl{width:96px;color:#374151;text-transform:capitalize;font-size:12px}
+.stage .num{color:#6b7280;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="loginbox">
+    <div class="brand">FUNIL <span>VIVO</span></div>
+    <div class="tag">Portal da agência</div>
+    <form id="loginForm">
+      <label>E-mail</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label>Senha</label>
+      <input id="senha" type="password" autocomplete="current-password" required>
+      <button class="btn" type="submit" id="loginBtn">Entrar</button>
+      <div class="msg" id="loginMsg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">FUNIL <span>VIVO</span></div>
+      <div>
+        <span class="who" id="who"></span>
+        <button class="btn sec" id="trocarSenha" style="color:#2E75B6;border-color:#9cc3e6;margin-right:6px">Trocar senha</button>
+        <button class="btn sec" id="logout">Sair</button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://myamzjypptifoxulahvo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9sdEIYPZVDyJ4-1IPQugaw_22KlmPtK";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = s => document.querySelector(s);
+const brl = n => "R$ " + Number(n||0).toLocaleString("pt-BR");
+const esc = s => (""+(s==null?"":s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const show = (el,on)=>{ el.style.display = on ? "" : "none"; };
+
+$("#loginForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const msg=$("#loginMsg"); msg.className="msg"; msg.textContent="Entrando…";
+  $("#loginBtn").disabled=true;
+  const { error } = await sb.auth.signInWithPassword({ email:$("#email").value.trim(), password:$("#senha").value });
+  $("#loginBtn").disabled=false;
+  if(error){ msg.className="msg err"; msg.textContent = "Não foi possível entrar: " + error.message; return; }
+  msg.textContent=""; boot();
+});
+
+$("#logout").addEventListener("click", async ()=>{ await sb.auth.signOut(); location.reload(); });
+
+$("#trocarSenha").addEventListener("click", async ()=>{
+  const nova = prompt("Digite a nova senha (mínimo 6 caracteres):");
+  if(!nova) return;
+  if(nova.length < 6){ alert("A senha precisa ter ao menos 6 caracteres."); return; }
+  const { error } = await sb.auth.updateUser({ password: nova });
+  alert(error ? ("Erro: " + error.message) : "Senha alterada com sucesso!");
+});
+
+async function boot(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user){ show($("#login"),true); show($("#app"),false); return; }
+  show($("#login"),false); show($("#app"),true);
+
+  let { data: perfil } = await sb.from("perfis").select("*").eq("id", user.id).maybeSingle();
+  const papel = perfil ? perfil.papel : "cliente";
+  const nome = (perfil && perfil.nome) || user.email;
+  $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(papel) + '</span>';
+
+  if(papel === "admin" || papel === "equipe") await viewEquipe();
+  else await viewCliente();
+}
+
+async function viewEquipe(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const [cli,neg,leads,apr,tar,logs,met] = await Promise.all([
+    sb.from("clientes").select("id,nome,servicos,mrr,status"),
+    sb.from("negocios").select("estagio,valor_mensal"),
+    sb.from("leads").select("status"),
+    sb.from("aprovacoes").select("tipo,titulo,solicitante,status").eq("status","pendente"),
+    sb.from("tarefas").select("status"),
+    sb.from("agent_logs").select("agente,acao,resultado,criado_em").order("criado_em",{ascending:false}).limit(8),
+    sb.from("metricas").select("chave,valor,clientes(nome)").order("criado_em",{ascending:false}).limit(8),
+  ]);
+  const clientes=cli.data||[], negocios=neg.data||[], aprov=apr.data||[];
+  const mrr=clientes.filter(c=>c.status==="ativo").reduce((s,c)=>s+Number(c.mrr||0),0);
+  const ativos=clientes.filter(c=>c.status==="ativo").length;
+  const abertos=negocios.filter(n=>!["fechado","perdido"].includes(n.estagio));
+  const pipeVal=abertos.reduce((s,n)=>s+Number(n.valor_mensal||0),0);
+  const byStage={}; abertos.forEach(n=>{byStage[n.estagio]=(byStage[n.estagio]||{n:0,v:0}); byStage[n.estagio].n++; byStage[n.estagio].v+=Number(n.valor_mensal||0);});
+  const order=["qualificado","reuniao","proposta"]; const maxN=Math.max(1,...Object.values(byStage).map(x=>x.n));
+  const tcount={}; (tar.data||[]).forEach(t=>tcount[t.status]=(tcount[t.status]||0)+1);
+
+  v.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="label">MRR ativo</div><div class="val green">${brl(mrr)}</div></div>
+    <div class="kpi"><div class="label">Clientes ativos</div><div class="val">${ativos}</div></div>
+    <div class="kpi"><div class="label">Pipeline aberto</div><div class="val blue">${brl(pipeVal)}</div></div>
+    <div class="kpi"><div class="label">Negócios abertos</div><div class="val">${abertos.length}</div></div>
+    <div class="kpi"><div class="label">Leads</div><div class="val">${(leads.data||[]).length}</div></div>
+    <div class="kpi"><div class="label">Aprovações</div><div class="val amber">${aprov.length}</div></div>
+  </div>
+  <div class="card">
+    <h2>⏳ Fila de aprovações</h2>
+    ${aprov.length? aprov.map(a=>`<div class="appr"><div><b>${esc(a.titulo)}</b><div class="muted">${esc(a.tipo)} · ${esc(a.solicitante)}</div></div></div>`).join("") : '<div class="muted">Nada pendente.</div>'}
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>📊 Pipeline</h2>
+      ${order.filter(s=>byStage[s]).map(s=>`<div class="stage"><div class="lbl">${s}</div><div class="bar" style="width:${(byStage[s].n/maxN)*160+20}px"></div><div class="num">${byStage[s].n} · ${brl(byStage[s].v)}</div></div>`).join("")||'<div class="muted">Sem negócios.</div>'}
+    </div>
+    <div class="card"><h2>✅ Tarefas</h2>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px">
+        <div><div style="font-size:22px;font-weight:800;color:#1d4ed8">${tcount.fazendo||0}</div><div class="muted">fazendo</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:#854d0e">${tcount.pendente||0}</div><div class="muted">pendentes</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:#15803d">${tcount.concluida||0}</div><div class="muted">concluídas</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><h2>👥 Clientes</h2>
+    <table><thead><tr><th>Cliente</th><th>Serviços</th><th>MRR</th><th>Status</th></tr></thead><tbody>
+    ${clientes.map(c=>`<tr><td>${esc(c.nome)}</td><td class="muted">${(Array.isArray(c.servicos)?c.servicos:[]).join(", ")}</td><td>${brl(c.mrr)}</td><td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td></tr>`).join("")||'<tr><td colspan="4" class="muted">Sem clientes.</td></tr>'}
+    </tbody></table>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>📈 Métricas recentes</h2>
+      ${(met.data||[]).map(m=>`<span class="metric">${esc(m.clientes&&m.clientes.nome)} · ${esc(m.chave).toUpperCase()}: <b>${m.valor}</b></span>`).join("")||'<div class="muted">Sem métricas.</div>'}
+    </div>
+    <div class="card"><h2>🤖 Atividade da equipe</h2>
+      ${(logs.data||[]).map(l=>`<div class="log"><b>${esc(l.agente)}</b> — ${esc(l.acao)}<div class="r">${esc(l.resultado)}</div></div>`).join("")||'<div class="muted">Sem registros.</div>'}
+    </div>
+  </div>`;
+}
+
+async function viewCliente(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const [cli,camp,cont,rel,met] = await Promise.all([
+    sb.from("clientes").select("nome,servicos,status,mrr"),
+    sb.from("campanhas").select("plataforma,objetivo,orcamento,status"),
+    sb.from("conteudo").select("data_publicacao,formato,titulo,status").order("data_publicacao",{ascending:false}).limit(15),
+    sb.from("relatorios").select("tipo,periodo,criado_em").order("criado_em",{ascending:false}).limit(10),
+    sb.from("metricas").select("chave,valor,periodo").order("criado_em",{ascending:false}).limit(12),
+  ]);
+  const meu=(cli.data&&cli.data[0])||{nome:"Cliente"};
+  v.innerHTML = `
+  <div class="card">
+    <h2>Bem-vindo(a) — ${esc(meu.nome)}</h2>
+    <div class="muted">Serviços: ${(Array.isArray(meu.servicos)?meu.servicos:[]).join(", ")||"—"} · Status: <span class="pill s-${esc(meu.status)}">${esc(meu.status||"")}</span></div>
+  </div>
+  <div class="card"><h2>📈 Seus resultados</h2>
+    ${(met.data||[]).length? (met.data||[]).map(m=>`<span class="metric">${esc(m.chave).toUpperCase()}: <b>${m.valor}</b></span>`).join("") : '<div class="muted">Ainda sem métricas publicadas.</div>'}
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>🎯 Campanhas</h2>
+      <table><thead><tr><th>Plataforma</th><th>Objetivo</th><th>Status</th></tr></thead><tbody>
+      ${(camp.data||[]).map(c=>`<tr><td>${esc(c.plataforma)}</td><td class="muted">${esc(c.objetivo)}</td><td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td></tr>`).join("")||'<tr><td colspan="3" class="muted">Sem campanhas.</td></tr>'}
+      </tbody></table>
+    </div>
+    <div class="card"><h2>🗓️ Conteúdo</h2>
+      <table><thead><tr><th>Data</th><th>Formato</th><th>Status</th></tr></thead><tbody>
+      ${(cont.data||[]).map(c=>`<tr><td>${esc(c.data_publicacao||"")}</td><td>${esc(c.formato)}</td><td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td></tr>`).join("")||'<tr><td colspan="3" class="muted">Sem conteúdo.</td></tr>'}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="card"><h2>📄 Relatórios</h2>
+    <table><thead><tr><th>Tipo</th><th>Período</th><th>Data</th></tr></thead><tbody>
+    ${(rel.data||[]).map(r=>`<tr><td>${esc(r.tipo)}</td><td>${esc(r.periodo)}</td><td class="muted">${esc((r.criado_em||"").slice(0,10))}</td></tr>`).join("")||'<tr><td colspan="3" class="muted">Sem relatórios.</td></tr>'}
+    </tbody></table>
+  </div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
