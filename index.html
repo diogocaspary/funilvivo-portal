@@ -102,7 +102,21 @@ th{color:#6b7280;font-weight:600;font-size:12px}
 <script>
 const SUPABASE_URL = "https://myamzjypptifoxulahvo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_9sdEIYPZVDyJ4-1IPQugaw_22KlmPtK";
+const API_URL = "https://api.funilvivo.com.br";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function apiCall(path, method="GET", body){
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session ? session.access_token : "";
+  const res = await fetch(API_URL+path, {
+    method,
+    headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data; try { data = await res.json(); } catch { data = {}; }
+  if(!res.ok) throw new Error(data.error || ("erro "+res.status));
+  return data;
+}
 
 const $ = s => document.querySelector(s);
 const brl = n => "R$ " + Number(n||0).toLocaleString("pt-BR");
@@ -268,7 +282,15 @@ async function viewCanais(){
     <table><thead><tr><th>Apelido</th><th>Número</th><th>Instância</th><th>Status</th><th>Ativo</th><th></th></tr></thead><tbody id="listWa">
     ${(cw.data||[]).map(c=>rowWa(c)).join("")||'<tr><td colspan="6" class="muted">Nenhum WhatsApp ainda.</td></tr>'}
     </tbody></table>
-    <div class="muted" style="margin-top:8px">Conectar a instância (ler QR Code) é feito pelo robô no servidor — depois de salvar aqui, a gente conecta na próxima etapa.</div>
+    <div class="muted" style="margin-top:8px">Salve o WhatsApp, clique em <b>Criar instância</b>, depois <b>Conectar (QR)</b> e leia o código no app do WhatsApp.</div>
+  </div>
+
+  <div id="qrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:50">
+    <div style="background:#fff;border-radius:14px;padding:22px;max-width:340px;text-align:center">
+      <h2 style="margin:0 0 8px;color:#1F3864;font-size:16px">Conectar WhatsApp</h2>
+      <div id="qrBody" class="muted">Gerando QR…</div>
+      <button class="btn block" id="qrClose" style="margin-top:14px">Fechar</button>
+    </div>
   </div>`;
 
   $("#addEmail").onclick = addEmail;
@@ -291,7 +313,12 @@ function rowWa(c){
     <td>${esc(c.nome)}</td><td>${esc(c.numero||"")}</td><td class="muted">${esc(c.instancia||"")}</td>
     <td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td>
     <td>${c.ativo?"Sim":"Não"}</td>
-    <td><button class="btn sm ghost" data-tgl-wa="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
+    <td style="white-space:nowrap">
+        <button class="btn sm ghost" data-wa-create="${c.id}">Criar inst.</button>
+        <button class="btn sm" data-wa-qr="${c.id}">Conectar (QR)</button>
+        <button class="btn sm ghost" data-wa-status="${c.id}">Atualizar</button>
+        <button class="btn sm ghost" data-wa-logout="${c.id}">Desconectar</button>
+        <button class="btn sm ghost" data-tgl-wa="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
         <button class="btn sm sec" data-del-wa="${c.id}">Excluir</button></td>
   </tr>`;
 }
@@ -330,6 +357,44 @@ function bindChannelActions(){
   document.querySelectorAll("[data-del-wa]").forEach(b=>b.onclick=async()=>{
     if(confirm("Excluir este WhatsApp?")){ await sb.from("canais_whatsapp").delete().eq("id", b.dataset.delWa); viewCanais(); }
   });
+  // Ações via backend (Evolution)
+  document.querySelectorAll("[data-wa-create]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true; b.textContent="Criando…";
+    try{ await apiCall(`/wa/${b.dataset.waCreate}/create`,"POST"); alert("Instância criada! Agora clique em Conectar (QR)."); }
+    catch(e){ alert("Erro: "+e.message); } finally{ viewCanais(); }
+  });
+  document.querySelectorAll("[data-wa-status]").forEach(b=>b.onclick=async()=>{
+    try{ const r=await apiCall(`/wa/${b.dataset.waStatus}/status`); alert("Status: "+r.state); }
+    catch(e){ alert("Erro: "+e.message); } finally{ viewCanais(); }
+  });
+  document.querySelectorAll("[data-wa-logout]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Desconectar este WhatsApp?")) return;
+    try{ await apiCall(`/wa/${b.dataset.waLogout}/logout`,"POST"); alert("Desconectado."); }
+    catch(e){ alert("Erro: "+e.message); } finally{ viewCanais(); }
+  });
+  document.querySelectorAll("[data-wa-qr]").forEach(b=>b.onclick=()=>openQr(b.dataset.waQr));
+
+  const modal=$("#qrModal"), closeBtn=$("#qrClose");
+  if(closeBtn) closeBtn.onclick=()=>{ modal.style.display="none"; if(window._qrTimer) clearInterval(window._qrTimer); };
+}
+
+async function openQr(id){
+  const modal=$("#qrModal"), body=$("#qrBody");
+  modal.style.display="flex"; body.innerHTML="Gerando QR…";
+  async function load(){
+    try{
+      const r=await apiCall(`/wa/${id}/qr`);
+      if(r.qr){ body.innerHTML=`<img src="${r.qr}" style="width:260px;height:260px"><div class="muted" style="margin-top:8px">Abra o WhatsApp → Aparelhos conectados → Conectar aparelho e leia o código.</div>`; }
+      else if(r.code){ body.innerHTML=`<div style="font-size:13px">Código de pareamento:</div><div style="font-size:22px;font-weight:800;letter-spacing:2px">${esc(r.code)}</div>`; }
+      else { body.innerHTML='<div class="muted">Sem QR retornado. Tente Criar instância primeiro.</div>'; }
+    }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+  }
+  await load();
+  // re-checa status a cada 5s; quando conectar, fecha
+  if(window._qrTimer) clearInterval(window._qrTimer);
+  window._qrTimer=setInterval(async()=>{
+    try{ const s=await apiCall(`/wa/${id}/status`); if(s.state==="open"){ clearInterval(window._qrTimer); body.innerHTML='<div class="msg ok" style="font-size:15px">✅ Conectado!</div>'; setTimeout(()=>{modal.style.display="none";viewCanais();},1500);} }catch(_){}
+  }, 5000);
 }
 
 async function viewCliente(){
