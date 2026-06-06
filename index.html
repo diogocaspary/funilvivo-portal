@@ -99,7 +99,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const brl = n => "R$ " + Number(n||0).toLocaleString("pt-BR");
 const esc = s => (""+(s==null?"":s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-const show = (el,on)=>{ el.style.display = on ? "" : "none"; };
+const show = (el,on)=>{ el.style.display = on ? "block" : "none"; };
 
 $("#loginForm").addEventListener("submit", async (e)=>{
   e.preventDefault();
