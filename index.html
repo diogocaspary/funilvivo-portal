@@ -11,22 +11,26 @@ body{margin:0;background:#f5f7fa;color:#1f2937;font-family:-apple-system,BlinkMa
 .wrap{max-width:1100px;margin:0 auto;padding:20px}
 .brand{font-size:26px;font-weight:800;color:#1F3864;letter-spacing:.5px}
 .brand span{color:#2E75B6}
-/* login */
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .loginbox{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
 .loginbox .brand{text-align:center;font-size:30px;margin-bottom:4px}
 .loginbox .tag{text-align:center;color:#6b7280;margin-bottom:22px;font-size:13px}
 label{display:block;font-size:12px;color:#6b7280;margin:10px 0 4px;font-weight:600}
-input{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}
-input:focus{outline:none;border-color:#2E75B6}
-.btn{border:none;border-radius:9px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:16px;background:#2E75B6;color:#fff}
+input,select{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px;background:#fff}
+input:focus,select:focus{outline:none;border-color:#2E75B6}
+.btn{border:none;border-radius:9px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#2E75B6;color:#fff}
 .btn:hover{background:#255f96}
-.btn.sec{background:#fff;color:#b91c1c;border:1px solid #fca5a5;width:auto;padding:7px 14px;font-size:12px;margin:0}
+.btn.block{width:100%;margin-top:16px}
+.btn.sec{background:#fff;color:#b91c1c;border:1px solid #fca5a5;padding:7px 14px;font-size:12px}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.ghost{background:#fff;color:#2E75B6;border:1px solid #9cc3e6}
 .msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
 .msg.err{color:#b91c1c}.msg.ok{color:#15803d}
-/* app */
 #app{display:none}
-.topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.nav{display:flex;gap:8px;margin:0 0 16px}
+.nav button{background:#fff;border:1px solid #e5e7eb;color:#374151;border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px}
+.nav button.active{background:#1F3864;color:#fff;border-color:#1F3864}
 .who{color:#6b7280;font-size:13px}
 .badge{display:inline-block;background:#eef2ff;color:#4338ca;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;margin-left:6px;text-transform:uppercase}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0}
@@ -38,14 +42,16 @@ input:focus{outline:none;border-color:#2E75B6}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
 .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px}
 .card h2{margin:0 0 12px;font-size:15px;color:#1F3864}
+.formrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.formrow{grid-template-columns:1fr}}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #f0f0f0}
 th{color:#6b7280;font-weight:600;font-size:12px}
 .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.s-ativo,.s-publicado,.s-ativa,.s-concluida{background:#dcfce7;color:#15803d}
-.s-onboarding,.s-fazendo,.s-rascunho,.s-aprovacao{background:#dbeafe;color:#1d4ed8}
-.s-pendente,.s-pausada,.s-ideia{background:#fef9c3;color:#854d0e}
-.s-bloqueada{background:#fee2e2;color:#b91c1c}
+.s-ativo,.s-publicado,.s-ativa,.s-concluida,.s-conectado,.s-testado{background:#dcfce7;color:#15803d}
+.s-onboarding,.s-fazendo,.s-rascunho,.s-aprovacao,.s-novo{background:#dbeafe;color:#1d4ed8}
+.s-pendente,.s-pausada,.s-ideia,.s-desconectado{background:#fef9c3;color:#854d0e}
+.s-bloqueada,.s-erro{background:#fee2e2;color:#b91c1c}
 .metric{display:inline-block;background:#f1f5f9;border-radius:8px;padding:6px 10px;margin:0 8px 8px 0;font-size:12px}
 .metric b{color:#2E75B6}
 .log{font-size:13px;padding:8px 0;border-bottom:1px solid #f0f0f0}.log b{color:#1F3864}.log .r{color:#4b5563}
@@ -55,6 +61,7 @@ th{color:#6b7280;font-weight:600;font-size:12px}
 .stage .bar{height:22px;background:linear-gradient(90deg,#2E75B6,#5b9bd5);border-radius:5px;min-width:4px}
 .stage .lbl{width:96px;color:#374151;text-transform:capitalize;font-size:12px}
 .stage .num{color:#6b7280;font-size:12px}
+.hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:14px}
 </style>
 </head>
 <body>
@@ -69,7 +76,7 @@ th{color:#6b7280;font-weight:600;font-size:12px}
       <input id="email" type="email" autocomplete="username" required>
       <label>Senha</label>
       <input id="senha" type="password" autocomplete="current-password" required>
-      <button class="btn" type="submit" id="loginBtn">Entrar</button>
+      <button class="btn block" type="submit" id="loginBtn">Entrar</button>
       <div class="msg" id="loginMsg"></div>
     </form>
   </div>
@@ -86,6 +93,7 @@ th{color:#6b7280;font-weight:600;font-size:12px}
         <button class="btn sec" id="logout">Sair</button>
       </div>
     </div>
+    <div class="nav" id="nav"></div>
     <div id="view"></div>
   </div>
 </div>
@@ -98,8 +106,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const $ = s => document.querySelector(s);
 const brl = n => "R$ " + Number(n||0).toLocaleString("pt-BR");
-const esc = s => (""+(s==null?"":s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const esc = s => (""+(s==null?"":s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const show = (el,on)=>{ el.style.display = on ? "block" : "none"; };
+let PAPEL = "cliente";
 
 $("#loginForm").addEventListener("submit", async (e)=>{
   e.preventDefault();
@@ -112,7 +121,6 @@ $("#loginForm").addEventListener("submit", async (e)=>{
 });
 
 $("#logout").addEventListener("click", async ()=>{ await sb.auth.signOut(); location.reload(); });
-
 $("#trocarSenha").addEventListener("click", async ()=>{
   const nova = prompt("Digite a nova senha (mínimo 6 caracteres):");
   if(!nova) return;
@@ -125,14 +133,24 @@ async function boot(){
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ show($("#login"),true); show($("#app"),false); return; }
   show($("#login"),false); show($("#app"),true);
-
   let { data: perfil } = await sb.from("perfis").select("*").eq("id", user.id).maybeSingle();
-  const papel = perfil ? perfil.papel : "cliente";
+  PAPEL = perfil ? perfil.papel : "cliente";
   const nome = (perfil && perfil.nome) || user.email;
-  $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(papel) + '</span>';
+  $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
-  if(papel === "admin" || papel === "equipe") await viewEquipe();
-  else await viewCliente();
+  if(PAPEL === "admin" || PAPEL === "equipe"){
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabCanais">Canais</button>';
+    $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabCanais").onclick = ()=>{ setTab("canais"); viewCanais(); };
+    viewEquipe();
+  } else {
+    $("#nav").innerHTML = "";
+    viewCliente();
+  }
+}
+function setTab(t){
+  const p=$("#tabPainel"), c=$("#tabCanais");
+  if(p&&c){ p.classList.toggle("active",t==="painel"); c.classList.toggle("active",t==="canais"); }
 }
 
 async function viewEquipe(){
@@ -193,6 +211,125 @@ async function viewEquipe(){
       ${(logs.data||[]).map(l=>`<div class="log"><b>${esc(l.agente)}</b> — ${esc(l.acao)}<div class="r">${esc(l.resultado)}</div></div>`).join("")||'<div class="muted">Sem registros.</div>'}
     </div>
   </div>`;
+}
+
+async function viewCanais(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const [ce,cw] = await Promise.all([
+    sb.from("vw_canais_email").select("*").order("criado_em",{ascending:false}),
+    sb.from("vw_canais_whatsapp").select("*").order("criado_em",{ascending:false}),
+  ]);
+  v.innerHTML = `
+  <div class="hint">🔒 As senhas de SMTP e tokens da Evolution são guardados de forma segura: depois de salvos, <b>não aparecem mais aqui</b> — só os robôs de envio (no servidor) os usam. Constância garantida: cada lead/cliente mantém sempre o mesmo e-mail e número usados no primeiro contato.</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>✉️ Adicionar e-mail (SMTP)</h2>
+      <div class="formrow">
+        <div><label>Apelido</label><input id="e_nome" placeholder="Comercial 1"></div>
+        <div><label>Nome exibido</label><input id="e_fromnome" placeholder="Funil Vivo"></div>
+      </div>
+      <label>E-mail (from)</label><input id="e_email" placeholder="contato@funilvivo.com.br">
+      <div class="formrow">
+        <div><label>Servidor SMTP</label><input id="e_host" placeholder="smtp.dominio.com"></div>
+        <div><label>Porta</label><input id="e_port" value="587"></div>
+      </div>
+      <div class="formrow">
+        <div><label>Usuário SMTP</label><input id="e_user" placeholder="contato@funilvivo.com.br"></div>
+        <div><label>Senha SMTP</label><input id="e_pass" type="password" placeholder="••••••••"></div>
+      </div>
+      <button class="btn block" id="addEmail">Salvar e-mail</button>
+      <div class="msg" id="emailMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>🟢 Adicionar WhatsApp (Evolution)</h2>
+      <label>Apelido</label><input id="w_nome" placeholder="WhatsApp Comercial">
+      <label>URL da API</label><input id="w_url" placeholder="https://evolution.seuservidor.com">
+      <label>Token (API Key)</label><input id="w_token" type="password" placeholder="••••••••">
+      <div class="formrow">
+        <div><label>Instância</label><input id="w_inst" placeholder="funilvivo"></div>
+        <div><label>Número</label><input id="w_num" placeholder="5511999999999"></div>
+      </div>
+      <button class="btn block" id="addWa">Salvar WhatsApp</button>
+      <div class="msg" id="waMsg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>✉️ E-mails configurados</h2>
+    <table><thead><tr><th>Apelido</th><th>E-mail</th><th>SMTP</th><th>Status</th><th>Ativo</th><th></th></tr></thead><tbody id="listEmail">
+    ${(ce.data||[]).map(c=>rowEmail(c)).join("")||'<tr><td colspan="6" class="muted">Nenhum e-mail ainda.</td></tr>'}
+    </tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>🟢 WhatsApp configurados</h2>
+    <table><thead><tr><th>Apelido</th><th>Número</th><th>Instância</th><th>Status</th><th>Ativo</th><th></th></tr></thead><tbody id="listWa">
+    ${(cw.data||[]).map(c=>rowWa(c)).join("")||'<tr><td colspan="6" class="muted">Nenhum WhatsApp ainda.</td></tr>'}
+    </tbody></table>
+    <div class="muted" style="margin-top:8px">Conectar a instância (ler QR Code) é feito pelo robô no servidor — depois de salvar aqui, a gente conecta na próxima etapa.</div>
+  </div>`;
+
+  $("#addEmail").onclick = addEmail;
+  $("#addWa").onclick = addWa;
+  bindChannelActions();
+}
+
+function rowEmail(c){
+  return `<tr>
+    <td>${esc(c.nome)}</td><td>${esc(c.from_email)}</td>
+    <td class="muted">${esc(c.smtp_host||"")}:${esc(c.smtp_port||"")}</td>
+    <td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td>
+    <td>${c.ativo?"Sim":"Não"}</td>
+    <td><button class="btn sm ghost" data-tgl-email="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
+        <button class="btn sm sec" data-del-email="${c.id}">Excluir</button></td>
+  </tr>`;
+}
+function rowWa(c){
+  return `<tr>
+    <td>${esc(c.nome)}</td><td>${esc(c.numero||"")}</td><td class="muted">${esc(c.instancia||"")}</td>
+    <td><span class="pill s-${esc(c.status)}">${esc(c.status)}</span></td>
+    <td>${c.ativo?"Sim":"Não"}</td>
+    <td><button class="btn sm ghost" data-tgl-wa="${c.id}" data-now="${c.ativo}">${c.ativo?"Desativar":"Ativar"}</button>
+        <button class="btn sm sec" data-del-wa="${c.id}">Excluir</button></td>
+  </tr>`;
+}
+
+async function addEmail(){
+  const m=$("#emailMsg"); m.className="msg";
+  const rec={ nome:$("#e_nome").value.trim(), from_nome:$("#e_fromnome").value.trim(), from_email:$("#e_email").value.trim(),
+    smtp_host:$("#e_host").value.trim(), smtp_port:parseInt($("#e_port").value)||587, smtp_user:$("#e_user").value.trim(), smtp_senha:$("#e_pass").value };
+  if(!rec.nome||!rec.from_email){ m.className="msg err"; m.textContent="Preencha apelido e e-mail."; return; }
+  m.textContent="Salvando…";
+  const { error } = await sb.from("canais_email").insert(rec);   // sem .select() → senha não volta
+  if(error){ m.className="msg err"; m.textContent="Erro: "+error.message; return; }
+  m.className="msg ok"; m.textContent="E-mail salvo!"; viewCanais();
+}
+async function addWa(){
+  const m=$("#waMsg"); m.className="msg";
+  const rec={ nome:$("#w_nome").value.trim(), evolution_url:$("#w_url").value.trim(), evolution_token:$("#w_token").value,
+    instancia:$("#w_inst").value.trim(), numero:$("#w_num").value.trim() };
+  if(!rec.nome){ m.className="msg err"; m.textContent="Preencha o apelido."; return; }
+  m.textContent="Salvando…";
+  const { error } = await sb.from("canais_whatsapp").insert(rec);
+  if(error){ m.className="msg err"; m.textContent="Erro: "+error.message; return; }
+  m.className="msg ok"; m.textContent="WhatsApp salvo!"; viewCanais();
+}
+
+function bindChannelActions(){
+  document.querySelectorAll("[data-tgl-email]").forEach(b=>b.onclick=async()=>{
+    await sb.from("canais_email").update({ativo: b.dataset.now!=="true"}).eq("id", b.dataset.tglEmail); viewCanais();
+  });
+  document.querySelectorAll("[data-del-email]").forEach(b=>b.onclick=async()=>{
+    if(confirm("Excluir este e-mail?")){ await sb.from("canais_email").delete().eq("id", b.dataset.delEmail); viewCanais(); }
+  });
+  document.querySelectorAll("[data-tgl-wa]").forEach(b=>b.onclick=async()=>{
+    await sb.from("canais_whatsapp").update({ativo: b.dataset.now!=="true"}).eq("id", b.dataset.tglWa); viewCanais();
+  });
+  document.querySelectorAll("[data-del-wa]").forEach(b=>b.onclick=async()=>{
+    if(confirm("Excluir este WhatsApp?")){ await sb.from("canais_whatsapp").delete().eq("id", b.dataset.delWa); viewCanais(); }
+  });
 }
 
 async function viewCliente(){
