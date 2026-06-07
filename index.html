@@ -190,7 +190,7 @@ function setTab(t){
 
 async function viewEquipe(){
   const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
-  const [cli,neg,leads,apr,tar,logs,met] = await Promise.all([
+  const [cli,neg,leads,apr,tar,logs,met,msgIn] = await Promise.all([
     sb.from("clientes").select("id,nome,servicos,mrr,status"),
     sb.from("negocios").select("estagio,valor_mensal"),
     sb.from("leads").select("status"),
@@ -198,6 +198,7 @@ async function viewEquipe(){
     sb.from("tarefas").select("status"),
     sb.from("agent_logs").select("agente,acao,resultado,criado_em").order("criado_em",{ascending:false}).limit(8),
     sb.from("metricas").select("chave,valor,clientes(nome)").order("criado_em",{ascending:false}).limit(8),
+    sb.from("mensagens").select("lead_id,direcao").eq("direcao","entrada").limit(3000),
   ]);
   const clientes=cli.data||[], negocios=neg.data||[], aprov=apr.data||[];
   const mrr=clientes.filter(c=>c.status==="ativo").reduce((s,c)=>s+Number(c.mrr||0),0);
@@ -207,6 +208,14 @@ async function viewEquipe(){
   const byStage={}; abertos.forEach(n=>{byStage[n.estagio]=(byStage[n.estagio]||{n:0,v:0}); byStage[n.estagio].n++; byStage[n.estagio].v+=Number(n.valor_mensal||0);});
   const order=["qualificado","reuniao","proposta"]; const maxN=Math.max(1,...Object.values(byStage).map(x=>x.n));
   const tcount={}; (tar.data||[]).forEach(t=>tcount[t.status]=(tcount[t.status]||0)+1);
+  const totalLeads=(leads.data||[]).length;
+  const sc={}; (leads.data||[]).forEach(l=>sc[l.status]=(sc[l.status]||0)+1);
+  const responderam=new Set((msgIn.data||[]).map(m=>m.lead_id).filter(Boolean)).size;
+  const reuniaoN=negocios.filter(n=>["reuniao","proposta"].includes(n.estagio)).length;
+  const fechados=ativos;
+  const pct=(a,b)=>b?Math.round(a/b*100):0;
+  const ticket=ativos?Math.round(mrr/ativos):0;
+  const step=(label,val,sub)=>`<div class="kpi" style="text-align:center"><div class="label">${label}</div><div class="val" style="font-size:22px">${val}</div>${sub?'<div class="muted" style="font-size:11px">'+sub+'</div>':''}</div>`;
 
   v.innerHTML = `
   <div class="kpis">
@@ -216,6 +225,17 @@ async function viewEquipe(){
     <div class="kpi"><div class="label">Negócios abertos</div><div class="val">${abertos.length}</div></div>
     <div class="kpi"><div class="label">Leads</div><div class="val">${(leads.data||[]).length}</div></div>
     <div class="kpi"><div class="label">Aprovações</div><div class="val amber">${aprov.length}</div></div>
+  </div>
+  <div class="card">
+    <h2>🎯 Funil de conversão & ROI</h2>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
+      ${step("Leads", totalLeads, "")}
+      ${step("Responderam", responderam, pct(responderam,totalLeads)+"%")}
+      ${step("Qualificados", sc.qualificado||0, "")}
+      ${step("Reunião/Proposta", reuniaoN, "")}
+      ${step("Fechados", fechados, pct(fechados,reuniaoN)+"% das reuniões")}
+    </div>
+    <div class="muted" style="font-size:12px">📈 Taxa de resposta: <b>${pct(responderam,totalLeads)}%</b> · Ticket médio: <b>${brl(ticket)}</b> · MRR ativo: <b>${brl(mrr)}</b> · Pipeline aberto: <b>${brl(pipeVal)}</b></div>
   </div>
   <div class="card">
     <h2>⏳ Fila de aprovações</h2>
