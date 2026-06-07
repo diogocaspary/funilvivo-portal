@@ -414,7 +414,7 @@ function bindChannelActions(){
   document.querySelectorAll("[data-wa-qr]").forEach(b=>b.onclick=()=>openQr(b.dataset.waQr));
 
   const modal=$("#qrModal"), closeBtn=$("#qrClose");
-  if(closeBtn) closeBtn.onclick=()=>{ modal.style.display="none"; if(window._qrTimer) clearInterval(window._qrTimer); };
+  if(closeBtn) closeBtn.onclick=()=>{ modal.style.display="none"; if(window._qrTimer) clearInterval(window._qrTimer); if(window._qrRefresh) clearInterval(window._qrRefresh); };
 }
 
 async function openQr(id){
@@ -429,10 +429,12 @@ async function openQr(id){
     }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
   }
   await load();
-  // re-checa status a cada 5s; quando conectar, fecha
+  // renova o QR a cada 20s (evita expirar) e checa status a cada 5s
+  if(window._qrRefresh) clearInterval(window._qrRefresh);
+  window._qrRefresh=setInterval(load, 20000);
   if(window._qrTimer) clearInterval(window._qrTimer);
   window._qrTimer=setInterval(async()=>{
-    try{ const s=await apiCall(`/wa/${id}/status`); if(s.state==="open"){ clearInterval(window._qrTimer); body.innerHTML='<div class="msg ok" style="font-size:15px">✅ Conectado!</div>'; setTimeout(()=>{modal.style.display="none";viewCanais();},1500);} }catch(_){}
+    try{ const s=await apiCall(`/wa/${id}/status`); if(s.state==="open"){ clearInterval(window._qrTimer); clearInterval(window._qrRefresh); body.innerHTML='<div class="msg ok" style="font-size:15px">✅ Conectado!</div>'; setTimeout(()=>{modal.style.display="none";viewCanais();},1500);} }catch(_){}
   }, 5000);
 }
 
