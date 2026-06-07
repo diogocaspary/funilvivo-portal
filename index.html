@@ -526,8 +526,14 @@ async function openC360(leadId){
   </div>
   <div class="muted" style="margin:6px 0 12px">${c.telefone?"📱 "+esc(c.telefone)+"  ":""}${c.email?"✉️ "+esc(c.email)+"  ":""}${c.instagram?"📷 "+esc(c.instagram):""}</div>
 
-  <div style="background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;margin-bottom:12px;font-size:13px">
+  <div style="background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px">
     <b>🧠 Memória do relacionamento:</b><br>${lead.resumo?esc(lead.resumo):'<span class="muted">Sem memória ainda — preenchida automaticamente a cada conversa.</span>'}
+  </div>
+  <div class="muted" style="margin-bottom:12px;font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:10px">
+    <span>🕒 Último contato: ${lead.ultimo_contato?new Date(lead.ultimo_contato).toLocaleString("pt-BR"):"—"}</span>
+    <span>🔁 Follow-ups: ${lead.followups_enviados||0}</span>
+    <span>📅 Próximo: ${lead.proximo_followup?new Date(lead.proximo_followup).toLocaleString("pt-BR"):"—"}</span>
+    <button class="btn sm ${lead.nao_perturbe?"ok":"ghost"}" id="dndBtn" data-lead="${lead.id||""}" data-dnd="${lead.nao_perturbe?"1":"0"}">${lead.nao_perturbe?"🔔 Reativar contato":"🔕 Não perturbar"}</button>
   </div>
 
   <div class="kpis" style="margin:0 0 12px">
@@ -561,6 +567,7 @@ async function openC360(leadId){
     <div class="card"><h2>📄 Relatórios</h2>${rel.length?rel.map(x=>`<div class="log">${esc(x.tipo||"")} · ${esc(x.periodo||"")}</div>`).join(""):'<div class="muted">Sem relatórios.</div>'}</div>
   </div>`:""}
   `;
+  const dnd=$("#dndBtn"); if(dnd) dnd.onclick=async()=>{ await sb.from("leads").update({nao_perturbe: dnd.dataset.dnd!=="1"}).eq("id", dnd.dataset.lead); openC360(dnd.dataset.lead); };
 }
 
 async function viewConversas(){
