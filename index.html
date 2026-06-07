@@ -65,6 +65,20 @@ th{color:#6b7280;font-weight:600;font-size:12px}
 .stage .lbl{width:96px;color:#374151;text-transform:capitalize;font-size:12px}
 .stage .num{color:#6b7280;font-size:12px}
 .hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:14px}
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:760px){.kanban{grid-template-columns:1fr 1fr}}
+.kcol{background:#f1f5f9;border-radius:10px;padding:10px;min-height:120px}
+.kcol h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;color:#475569;letter-spacing:.4px}
+.kcard{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px}
+.convlist{max-height:560px;overflow:auto}
+.convitem{display:flex;justify-content:space-between;align-items:center;padding:10px;border:1px solid #eee;border-radius:9px;margin-bottom:8px;cursor:pointer}
+.convitem:hover{background:#f8fafc}
+.badge-unread{background:#ef4444;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700}
+#convThread{max-height:560px;overflow:auto}
+.bubble{max-width:85%;padding:8px 12px;border-radius:12px;margin:6px 0;font-size:13px;white-space:pre-wrap}
+.bub-in{background:#f1f5f9;color:#111827;margin-right:auto;border-bottom-left-radius:3px}
+.bub-out{background:#dbeafe;color:#0c2a4d;margin-left:auto;border-bottom-right-radius:3px}
+.bubmeta{font-size:10px;color:#94a3b8;margin-top:3px}
 </style>
 </head>
 <body>
@@ -156,8 +170,10 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabConversas").onclick = ()=>{ setTab("conversas"); viewConversas(); };
+    $("#tabKanban").onclick = ()=>{ setTab("kanban"); viewKanban(); };
     $("#tabAprov").onclick = ()=>{ setTab("aprov"); viewAprov(); };
     $("#tabFila").onclick = ()=>{ setTab("fila"); viewFila(); };
     $("#tabCanais").onclick = ()=>{ setTab("canais"); viewCanais(); };
@@ -168,7 +184,7 @@ async function boot(){
   }
 }
 function setTab(t){
-  [["Painel","painel"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+  [["Painel","painel"],["Conversas","conversas"],["Kanban","kanban"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
 }
 
 async function viewEquipe(){
@@ -449,6 +465,54 @@ async function openMessage(id, seq){
       <div style="white-space:pre-wrap;font-size:13px">${esc(m.text||"(sem texto)")}</div>`;
     $("#inboxBack").onclick=()=>openInbox(id);
   }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+}
+
+async function viewConversas(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data } = await sb.from("mensagens").select("lead_id,direcao,status,assunto,corpo,criado_em,leads(nome,empresa)").order("criado_em",{ascending:false}).limit(500);
+  const msgs=data||[]; const byLead={};
+  msgs.forEach(m=>{ if(!m.lead_id) return; if(!byLead[m.lead_id]) byLead[m.lead_id]={lead:m.leads,last:m.criado_em,unread:0,lastMsg:m}; if(m.direcao==="entrada"&&m.status==="nao_lida") byLead[m.lead_id].unread++; });
+  const leads=Object.entries(byLead).sort((a,b)=>new Date(b[1].last)-new Date(a[1].last));
+  v.innerHTML = `<div class="grid2">
+    <div class="card"><h2>💬 Conversas por cliente</h2><div class="convlist">
+    ${leads.length? leads.map(([id,o])=>`<div class="convitem" data-conv="${id}">
+      <div><b>${esc(o.lead&&o.lead.nome||"Lead")}</b><div class="muted">${esc((o.lastMsg.assunto||o.lastMsg.corpo||"").slice(0,42))}</div></div>
+      <div style="text-align:right">${o.unread?'<span class="badge-unread">'+o.unread+'</span>':''}<div class="muted" style="font-size:11px">${new Date(o.last).toLocaleDateString("pt-BR")}</div></div>
+    </div>`).join("") : '<div class="muted">Nenhuma conversa ainda. Aparecem aqui quando há troca de e-mails com leads.</div>'}
+    </div></div>
+    <div class="card"><h2 id="convTitle">Selecione uma conversa</h2><div id="convThread" class="muted">Clique numa conversa à esquerda para ver o histórico.</div></div>
+  </div>`;
+  document.querySelectorAll("[data-conv]").forEach(el=>el.onclick=()=>openConversa(el.dataset.conv));
+}
+async function openConversa(leadId){
+  const title=$("#convTitle"), thread=$("#convThread");
+  thread.classList.remove("muted"); thread.innerHTML="Carregando…";
+  const { data: ms } = await sb.from("mensagens").select("*").eq("lead_id",leadId).order("criado_em",{ascending:true});
+  const { data: ld } = await sb.from("leads").select("nome,empresa,contato,status").eq("id",leadId).maybeSingle();
+  title.textContent = (ld&&ld.nome) || "Conversa";
+  thread.innerHTML = (ms||[]).map(m=>`<div class="bubble ${m.direcao==="entrada"?"bub-in":"bub-out"}">${m.assunto?"<b>"+esc(m.assunto)+"</b><br>":""}${esc(m.corpo||"")}<div class="bubmeta">${m.direcao==="entrada"?"📥 recebido":"📤 enviado"} · ${new Date(m.criado_em).toLocaleString("pt-BR")}</div></div>`).join("") || '<div class="muted">Sem mensagens.</div>';
+  await sb.from("mensagens").update({status:"lida"}).eq("lead_id",leadId).eq("direcao","entrada").eq("status","nao_lida");
+}
+
+async function viewKanban(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status").order("criado_em",{ascending:false}).limit(300);
+  const leads=data||[];
+  const cols=[["novo","Novos"],["contatado","Contatados"],["qualificado","Qualificados"],["descartado","Descartados"]];
+  v.innerHTML = `<div class="card"><h2>🗂️ Kanban de qualificação de leads</h2>
+    <div class="kanban">
+    ${cols.map(([key,label])=>`<div class="kcol"><h3>${label} (${leads.filter(l=>l.status===key).length})</h3>
+      ${leads.filter(l=>l.status===key).map(l=>`<div class="kcard">
+        <b>${esc(l.nome||"")}</b><div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div>
+        <select data-kstatus="${l.id}" style="margin-top:6px;padding:4px;font-size:11px;width:100%">
+          ${cols.map(([k,lb])=>`<option value="${k}" ${k===l.status?"selected":""}>${lb}</option>`).join("")}
+        </select>
+      </div>`).join("")||'<div class="muted" style="font-size:12px">—</div>'}
+    </div>`).join("")}
+    </div>
+    <div class="muted" style="margin-top:8px">Mude o estágio de um lead pelo seletor do card.</div>
+  </div>`;
+  document.querySelectorAll("[data-kstatus]").forEach(s=>s.onchange=async()=>{ await sb.from("leads").update({status:s.value}).eq("id",s.dataset.kstatus); viewKanban(); });
 }
 
 async function viewAprov(){
