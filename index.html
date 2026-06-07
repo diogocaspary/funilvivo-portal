@@ -52,6 +52,8 @@ th{color:#6b7280;font-weight:600;font-size:12px}
 .s-onboarding,.s-fazendo,.s-rascunho,.s-aprovacao,.s-novo{background:#dbeafe;color:#1d4ed8}
 .s-pendente,.s-pausada,.s-ideia,.s-desconectado{background:#fef9c3;color:#854d0e}
 .s-bloqueada,.s-erro{background:#fee2e2;color:#b91c1c}
+.s-concluido,.s-enviado{background:#dcfce7;color:#15803d}
+.s-processando{background:#dbeafe;color:#1d4ed8}
 .metric{display:inline-block;background:#f1f5f9;border-radius:8px;padding:6px 10px;margin:0 8px 8px 0;font-size:12px}
 .metric b{color:#2E75B6}
 .log{font-size:13px;padding:8px 0;border-bottom:1px solid #f0f0f0}.log b{color:#1F3864}.log .r{color:#4b5563}
@@ -153,8 +155,9 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabFila").onclick = ()=>{ setTab("fila"); viewFila(); };
     $("#tabCanais").onclick = ()=>{ setTab("canais"); viewCanais(); };
     viewEquipe();
   } else {
@@ -163,8 +166,7 @@ async function boot(){
   }
 }
 function setTab(t){
-  const p=$("#tabPainel"), c=$("#tabCanais");
-  if(p&&c){ p.classList.toggle("active",t==="painel"); c.classList.toggle("active",t==="canais"); }
+  ["Painel","Fila","Canais"].forEach(n=>{ const el=$("#tab"+n); if(el) el.classList.toggle("active", t===n.toLowerCase()); });
 }
 
 async function viewEquipe(){
@@ -445,6 +447,34 @@ async function openMessage(id, seq){
       <div style="white-space:pre-wrap;font-size:13px">${esc(m.text||"(sem texto)")}</div>`;
     $("#inboxBack").onclick=()=>openInbox(id);
   }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+}
+
+async function viewFila(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data } = await sb.from("fila_agente").select("tipo,titulo,status,worker,erro,atualizado_em").order("criado_em",{ascending:false}).limit(60);
+  const rows=data||[]; const c={};
+  rows.forEach(r=>c[r.status]=(c[r.status]||0)+1);
+  v.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="label">Novo</div><div class="val blue">${c.novo||0}</div></div>
+    <div class="kpi"><div class="label">Processando</div><div class="val">${c.processando||0}</div></div>
+    <div class="kpi"><div class="label">Concluído</div><div class="val">${c.concluido||0}</div></div>
+    <div class="kpi"><div class="label">Enviado</div><div class="val green">${c.enviado||0}</div></div>
+    <div class="kpi"><div class="label">Erro</div><div class="val amber">${c.erro||0}</div></div>
+  </div>
+  <div class="card">
+    <h2>🧰 Fila de tarefas dos agentes</h2>
+    <table><thead><tr><th>Tipo</th><th>Tarefa</th><th>Status</th><th>Worker</th><th>Atualizado</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr>
+      <td>${esc(r.tipo)}</td>
+      <td>${esc(r.titulo||"")}${r.erro?'<div class="muted" style="color:#b91c1c">'+esc(r.erro)+'</div>':''}</td>
+      <td><span class="pill s-${esc(r.status)}">${esc(r.status)}</span></td>
+      <td class="muted">${esc(r.worker||"")}</td>
+      <td class="muted">${r.atualizado_em?new Date(r.atualizado_em).toLocaleString("pt-BR"):""}</td>
+    </tr>`).join("")||'<tr><td colspan="5" class="muted">Fila vazia.</td></tr>'}
+    </tbody></table>
+    <div class="muted" style="margin-top:8px">Produtor (backend) enfileira → Worker (Claude) responde → Consumidor (backend) envia.</div>
+  </div>`;
 }
 
 async function viewCliente(){
