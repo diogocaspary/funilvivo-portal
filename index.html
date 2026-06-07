@@ -170,11 +170,12 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabC360">Cliente 360</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabC360">Cliente 360</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabConteudo">Conteúdo</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
     $("#tabC360").onclick = ()=>{ setTab("c360"); viewC360(); };
     $("#tabConversas").onclick = ()=>{ setTab("conversas"); viewConversas(); };
     $("#tabKanban").onclick = ()=>{ setTab("kanban"); viewKanban(); };
+    $("#tabConteudo").onclick = ()=>{ setTab("conteudo"); viewConteudo(); };
     $("#tabAprov").onclick = ()=>{ setTab("aprov"); viewAprov(); };
     $("#tabFila").onclick = ()=>{ setTab("fila"); viewFila(); };
     $("#tabCanais").onclick = ()=>{ setTab("canais"); viewCanais(); };
@@ -185,7 +186,41 @@ async function boot(){
   }
 }
 function setTab(t){
-  [["Painel","painel"],["C360","c360"],["Conversas","conversas"],["Kanban","kanban"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+  [["Painel","painel"],["C360","c360"],["Conversas","conversas"],["Kanban","kanban"],["Conteudo","conteudo"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+}
+
+async function viewConteudo(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const [estR, conR] = await Promise.all([
+    sb.from("config_comercial").select("valor").eq("chave","estrategia_instagram").maybeSingle(),
+    sb.from("conteudo").select("id,data_publicacao,formato,titulo,texto,roteiro,imagem_brief,revisao,status").eq("interno",true).order("data_publicacao",{ascending:true}).limit(60),
+  ]);
+  const est=(estR.data&&estR.data.valor)||{}; const posts=conR.data||[];
+  const estrHtml = est.status==="ativo" ? `<div class="muted" style="font-size:12px">
+    <b>Posicionamento:</b> ${esc(est.posicionamento||"")}<br>
+    <b>Pilares:</b> ${(est.pilares||[]).map(esc).join(" · ")}<br>
+    <b>Tom:</b> ${esc(est.tom||"")} · <b>Frequência:</b> ${esc(est.frequencia||"")}</div>` : '<div class="muted">Estratégia ainda não definida — o Gerente de Conteúdo define toda segunda (ou rode "Run now").</div>';
+  v.innerHTML = `
+  <div class="card"><h2>📣 Estratégia de Instagram — Funil Vivo</h2>${estrHtml}</div>
+  <div class="card"><h2>🗓️ Calendário de conteúdo</h2>
+    ${posts.length? posts.map(p=>`<div style="border:1px solid #eee;border-radius:9px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div><b>${esc(p.titulo||"")}</b> <span class="muted">· ${esc(p.formato||"")} · ${esc(p.data_publicacao||"")}</span></div>
+        <span class="pill s-${esc(p.status)}">${esc(p.status)}</span>
+      </div>
+      ${p.texto?`<div style="white-space:pre-wrap;font-size:12px;margin-top:6px"><b>Legenda:</b> ${esc(p.texto)}</div>`:""}
+      ${p.roteiro?`<div class="muted" style="white-space:pre-wrap;font-size:12px;margin-top:4px"><b>Roteiro:</b> ${esc(p.roteiro)}</div>`:""}
+      ${p.imagem_brief?`<div class="muted" style="font-size:12px;margin-top:4px"><b>Imagem:</b> ${esc(p.imagem_brief)}</div>`:""}
+      <div style="margin-top:8px">
+        ${p.status==="aprovacao"?`<button class="btn sm ok" data-pub-ok="${p.id}">Aprovar</button> `:""}
+        ${p.status==="aprovado"?`<button class="btn sm" data-pub-done="${p.id}">Marcar publicado</button> `:""}
+        <button class="btn sm sec" data-pub-no="${p.id}">Descartar</button>
+      </div>
+    </div>`).join("") : '<div class="muted">Nenhum conteúdo ainda. O Gerente cria o calendário e o Criador produz os posts.</div>'}
+  </div>`;
+  document.querySelectorAll("[data-pub-ok]").forEach(b=>b.onclick=async()=>{ await sb.from("conteudo").update({status:"aprovado"}).eq("id",b.dataset.pubOk); viewConteudo(); });
+  document.querySelectorAll("[data-pub-done]").forEach(b=>b.onclick=async()=>{ await sb.from("conteudo").update({status:"publicado"}).eq("id",b.dataset.pubDone); viewConteudo(); });
+  document.querySelectorAll("[data-pub-no]").forEach(b=>b.onclick=async()=>{ await sb.from("conteudo").update({status:"descartado"}).eq("id",b.dataset.pubNo); viewConteudo(); });
 }
 
 async function viewEquipe(){
