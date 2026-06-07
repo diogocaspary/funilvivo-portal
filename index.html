@@ -170,8 +170,9 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabC360">Cliente 360</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabC360").onclick = ()=>{ setTab("c360"); viewC360(); };
     $("#tabConversas").onclick = ()=>{ setTab("conversas"); viewConversas(); };
     $("#tabKanban").onclick = ()=>{ setTab("kanban"); viewKanban(); };
     $("#tabAprov").onclick = ()=>{ setTab("aprov"); viewAprov(); };
@@ -184,7 +185,7 @@ async function boot(){
   }
 }
 function setTab(t){
-  [["Painel","painel"],["Conversas","conversas"],["Kanban","kanban"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+  [["Painel","painel"],["C360","c360"],["Conversas","conversas"],["Kanban","kanban"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
 }
 
 async function viewEquipe(){
@@ -467,6 +468,99 @@ async function openMessage(id, seq){
       <div style="white-space:pre-wrap;font-size:13px">${esc(m.text||"(sem texto)")}</div>`;
     $("#inboxBack").onclick=()=>openInbox(id);
   }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+}
+
+async function viewC360(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status").order("ultimo_contato",{ascending:false,nullsFirst:false}).limit(300);
+  const leads=data||[];
+  v.innerHTML = `<div class="grid2" style="grid-template-columns:320px 1fr">
+    <div class="card">
+      <h2>👥 Contatos</h2>
+      <input id="c360search" placeholder="Buscar por nome ou empresa…" style="margin-bottom:10px">
+      <div class="convlist" id="c360list">
+      ${leads.map(l=>`<div class="convitem" data-c360="${l.id}" data-search="${esc((l.nome||"")+" "+(l.empresa||"")).toLowerCase()}">
+        <div><b>${esc(l.nome||"")}</b><div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div></div>
+        <span class="pill s-${esc(l.status||"")}">${esc(l.status||"")}</span>
+      </div>`).join("")||'<div class="muted">Nenhum contato ainda.</div>'}
+      </div>
+    </div>
+    <div class="card"><div id="c360detail" class="muted">Selecione um contato para ver a ficha 360 completa.</div></div>
+  </div>`;
+  const search=$("#c360search");
+  if(search) search.oninput=()=>{ const q=search.value.toLowerCase(); document.querySelectorAll("[data-c360]").forEach(el=>{ el.style.display = el.dataset.search.includes(q)?"":"none"; }); };
+  document.querySelectorAll("[data-c360]").forEach(el=>el.onclick=()=>openC360(el.dataset.c360));
+}
+
+async function openC360(leadId){
+  const d=$("#c360detail"); d.classList.remove("muted"); d.innerHTML="Carregando ficha…";
+  const [leadR, negsR, msgsR, ativR, outrR] = await Promise.all([
+    sb.from("leads").select("*").eq("id",leadId).maybeSingle(),
+    sb.from("negocios").select("id,estagio,servico,valor_mensal,proximo_passo,data_fechamento").eq("lead_id",leadId),
+    sb.from("mensagens").select("direcao,canal,assunto,corpo,criado_em").eq("lead_id",leadId).order("criado_em",{ascending:true}),
+    sb.from("atividades").select("tipo,resumo,responsavel,criado_em").eq("lead_id",leadId).order("criado_em",{ascending:false}).limit(15),
+    sb.from("outreach").select("etapa,assunto,status,criado_em").eq("lead_id",leadId).order("criado_em",{ascending:false}).limit(10),
+  ]);
+  const lead=leadR.data||{}, negs=negsR.data||[], msgs=msgsR.data||[], ativ=ativR.data||[], outr=outrR.data||[];
+  const c=lead.contato||{};
+  let cliente=null, camp=[], cont=[], rel=[], met=[];
+  if(negs.length){
+    const { data:cl } = await sb.from("clientes").select("*").in("negocio_id", negs.map(n=>n.id)).limit(1);
+    cliente = cl&&cl[0];
+    if(cliente){
+      const [cR,coR,rR,mR] = await Promise.all([
+        sb.from("campanhas").select("plataforma,objetivo,orcamento,status").eq("cliente_id",cliente.id),
+        sb.from("conteudo").select("data_publicacao,formato,status").eq("cliente_id",cliente.id).order("data_publicacao",{ascending:false}).limit(8),
+        sb.from("relatorios").select("tipo,periodo,criado_em").eq("cliente_id",cliente.id).order("criado_em",{ascending:false}).limit(6),
+        sb.from("metricas").select("chave,valor,periodo").eq("cliente_id",cliente.id).order("criado_em",{ascending:false}).limit(10),
+      ]);
+      camp=cR.data||[]; cont=coR.data||[]; rel=rR.data||[]; met=mR.data||[];
+    }
+  }
+  const neg=negs[0];
+  d.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+    <div><h2 style="margin:0">${esc(lead.empresa||lead.nome||"")}</h2>
+    <div class="muted">${esc(lead.nome||"")}${lead.segmento?" · "+esc(lead.segmento):""}</div></div>
+    <span class="pill s-${esc(lead.status||"")}">${esc(lead.status||"")}</span>
+  </div>
+  <div class="muted" style="margin:6px 0 12px">${c.telefone?"📱 "+esc(c.telefone)+"  ":""}${c.email?"✉️ "+esc(c.email)+"  ":""}${c.instagram?"📷 "+esc(c.instagram):""}</div>
+
+  <div style="background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;margin-bottom:12px;font-size:13px">
+    <b>🧠 Memória do relacionamento:</b><br>${lead.resumo?esc(lead.resumo):'<span class="muted">Sem memória ainda — preenchida automaticamente a cada conversa.</span>'}
+  </div>
+
+  <div class="kpis" style="margin:0 0 12px">
+    <div class="kpi"><div class="label">Negócio</div><div class="val" style="font-size:16px">${neg?esc(neg.estagio):"—"}</div></div>
+    <div class="kpi"><div class="label">Valor/mês</div><div class="val blue" style="font-size:16px">${neg&&neg.valor_mensal?brl(neg.valor_mensal):"—"}</div></div>
+    <div class="kpi"><div class="label">Cliente</div><div class="val" style="font-size:16px">${cliente?esc(cliente.status):"—"}</div></div>
+    <div class="kpi"><div class="label">MRR</div><div class="val green" style="font-size:16px">${cliente?brl(cliente.mrr):"—"}</div></div>
+  </div>
+
+  ${neg&&neg.proximo_passo?`<div class="hint">🎯 Próximo passo: ${esc(neg.proximo_passo)}</div>`:""}
+
+  <div class="card" style="margin:0 0 12px"><h2>💬 Conversas (e-mail + WhatsApp)</h2>
+    <div style="max-height:300px;overflow:auto">
+    ${msgs.length?msgs.map(m=>`<div class="bubble ${m.direcao==="entrada"?"bub-in":"bub-out"}">${m.assunto?"<b>"+esc(m.assunto)+"</b><br>":""}${esc((m.corpo||"").slice(0,500))}<div class="bubmeta">${m.direcao==="entrada"?"📥":"📤"} ${m.canal==="whatsapp"?"WhatsApp":"E-mail"} · ${new Date(m.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem mensagens.</div>'}
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>📌 Atividades</h2>
+      ${ativ.length?ativ.map(a=>`<div class="log"><b>${esc(a.tipo||"")}</b> ${esc(a.resumo||"")}<div class="r">${esc(a.responsavel||"")} · ${new Date(a.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem atividades.</div>'}
+    </div>
+    <div class="card"><h2>✉️ Outreach</h2>
+      ${outr.length?outr.map(o=>`<div class="log"><b>${esc(o.assunto||o.etapa||"")}</b><div class="r"><span class="pill s-${esc(o.status)}">${esc(o.status)}</span> · ${new Date(o.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem outreach.</div>'}
+    </div>
+  </div>
+
+  ${cliente?`<div class="grid2">
+    <div class="card"><h2>🎯 Campanhas</h2>${camp.length?camp.map(x=>`<div class="log"><b>${esc(x.plataforma||"")}</b> ${esc(x.objetivo||"")} <span class="pill s-${esc(x.status)}">${esc(x.status)}</span></div>`).join(""):'<div class="muted">Sem campanhas.</div>'}</div>
+    <div class="card"><h2>📈 Métricas</h2>${met.length?met.map(x=>`<span class="metric">${esc(x.chave).toUpperCase()}: <b>${x.valor}</b></span>`).join(""):'<div class="muted">Sem métricas.</div>'}</div>
+    <div class="card"><h2>🗓️ Conteúdo</h2>${cont.length?cont.map(x=>`<div class="log">${esc(x.data_publicacao||"")} · ${esc(x.formato||"")} <span class="pill s-${esc(x.status)}">${esc(x.status)}</span></div>`).join(""):'<div class="muted">Sem conteúdo.</div>'}</div>
+    <div class="card"><h2>📄 Relatórios</h2>${rel.length?rel.map(x=>`<div class="log">${esc(x.tipo||"")} · ${esc(x.periodo||"")}</div>`).join(""):'<div class="muted">Sem relatórios.</div>'}</div>
+  </div>`:""}
+  `;
 }
 
 async function viewConversas(){
