@@ -24,6 +24,7 @@ input:focus,select:focus{outline:none;border-color:#2E75B6}
 .btn.sec{background:#fff;color:#b91c1c;border:1px solid #fca5a5;padding:7px 14px;font-size:12px}
 .btn.sm{padding:5px 10px;font-size:12px}
 .btn.ghost{background:#fff;color:#2E75B6;border:1px solid #9cc3e6}
+.btn.ok{background:#15803d}.btn.ok:hover{background:#136a33}
 .msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
 .msg.err{color:#b91c1c}.msg.ok{color:#15803d}
 #app{display:none}
@@ -155,8 +156,9 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabAprov").onclick = ()=>{ setTab("aprov"); viewAprov(); };
     $("#tabFila").onclick = ()=>{ setTab("fila"); viewFila(); };
     $("#tabCanais").onclick = ()=>{ setTab("canais"); viewCanais(); };
     viewEquipe();
@@ -166,7 +168,7 @@ async function boot(){
   }
 }
 function setTab(t){
-  ["Painel","Fila","Canais"].forEach(n=>{ const el=$("#tab"+n); if(el) el.classList.toggle("active", t===n.toLowerCase()); });
+  [["Painel","painel"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
 }
 
 async function viewEquipe(){
@@ -447,6 +449,36 @@ async function openMessage(id, seq){
       <div style="white-space:pre-wrap;font-size:13px">${esc(m.text||"(sem texto)")}</div>`;
     $("#inboxBack").onclick=()=>openInbox(id);
   }catch(e){ body.innerHTML='<div class="msg err">Erro: '+esc(e.message)+'</div>'; }
+}
+
+async function viewAprov(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const [apr, drafts] = await Promise.all([
+    sb.from("aprovacoes").select("*").eq("status","pendente").order("criado_em",{ascending:false}),
+    sb.from("outreach").select("id,assunto,corpo,lead_id,leads(nome,contato)").eq("status","rascunho").order("criado_em",{ascending:false}).limit(50),
+  ]);
+  const aprs=apr.data||[], ds=drafts.data||[];
+  v.innerHTML = `
+  <div class="card">
+    <h2>⏳ Decisões pendentes (${aprs.length})</h2>
+    ${aprs.length? aprs.map(a=>`<div class="appr">
+      <div><b>${esc(a.titulo)}</b><div class="muted">${esc(a.tipo)} · ${esc(a.solicitante||"")}</div></div>
+      <div><button class="btn sm ok" data-ap-ok="${a.id}">Aprovar</button> <button class="btn sm sec" data-ap-no="${a.id}">Reprovar</button></div>
+    </div>`).join("") : '<div class="muted">Nada pendente. 🎉</div>'}
+  </div>
+  <div class="card">
+    <h2>✉️ Primeiros contatos a aprovar (${ds.length})</h2>
+    ${ds.length? ds.map(d=>`<div style="border:1px solid #eee;border-radius:9px;padding:12px;margin-bottom:10px">
+      <div><b>${esc(d.leads&&d.leads.nome||"")}</b> <span class="muted">&lt;${esc(d.leads&&d.leads.contato&&d.leads.contato.email||"sem e-mail")}&gt;</span></div>
+      <div style="font-size:13px;margin:4px 0"><b>${esc(d.assunto||"")}</b></div>
+      <div class="muted" style="white-space:pre-wrap;font-size:12px;max-height:120px;overflow:auto">${esc(d.corpo||"")}</div>
+      <div style="margin-top:8px"><button class="btn sm ok" data-d-send="${d.id}">Aprovar e enviar</button> <button class="btn sm sec" data-d-no="${d.id}">Descartar</button></div>
+    </div>`).join("") : '<div class="muted">Nenhum rascunho aguardando. O Prospector cria estes contatos.</div>'}
+  </div>`;
+  document.querySelectorAll("[data-ap-ok]").forEach(b=>b.onclick=async()=>{ await sb.from("aprovacoes").update({status:"aprovado",decidido_em:new Date().toISOString()}).eq("id",b.dataset.apOk); viewAprov(); });
+  document.querySelectorAll("[data-ap-no]").forEach(b=>b.onclick=async()=>{ await sb.from("aprovacoes").update({status:"reprovado",decidido_em:new Date().toISOString()}).eq("id",b.dataset.apNo); viewAprov(); });
+  document.querySelectorAll("[data-d-send]").forEach(b=>b.onclick=async()=>{ await sb.from("outreach").update({status:"aprovado"}).eq("id",b.dataset.dSend); alert("Aprovado! Será enviado em instantes pelo backend."); viewAprov(); });
+  document.querySelectorAll("[data-d-no]").forEach(b=>b.onclick=async()=>{ await sb.from("outreach").update({status:"descartado"}).eq("id",b.dataset.dNo); viewAprov(); });
 }
 
 async function viewFila(){
