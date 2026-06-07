@@ -490,9 +490,16 @@ async function openConversa(leadId){
   const title=$("#convTitle"), thread=$("#convThread");
   thread.classList.remove("muted"); thread.innerHTML="Carregando…";
   const { data: ms } = await sb.from("mensagens").select("*").eq("lead_id",leadId).order("criado_em",{ascending:true});
-  const { data: ld } = await sb.from("leads").select("nome,empresa,contato,status").eq("id",leadId).maybeSingle();
+  const { data: ld } = await sb.from("leads").select("nome,empresa,segmento,contato,status,resumo,ultimo_contato").eq("id",leadId).maybeSingle();
   title.textContent = (ld&&ld.nome) || "Conversa";
-  thread.innerHTML = (ms||[]).map(m=>`<div class="bubble ${m.direcao==="entrada"?"bub-in":"bub-out"}">${m.assunto?"<b>"+esc(m.assunto)+"</b><br>":""}${esc(m.corpo||"")}<div class="bubmeta">${m.direcao==="entrada"?"📥 recebido":"📤 enviado"} · ${new Date(m.criado_em).toLocaleString("pt-BR")}</div></div>`).join("") || '<div class="muted">Sem mensagens.</div>';
+  const c=(ld&&ld.contato)||{};
+  const perfil = ld ? `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px">
+    <div><b>${esc(ld.empresa||ld.nome||"")}</b> <span class="pill s-${esc(ld.status||"")}">${esc(ld.status||"")}</span></div>
+    <div class="muted">${ld.segmento?esc(ld.segmento)+" · ":""}${c.telefone?"📱 "+esc(c.telefone)+" ":""}${c.email?"✉️ "+esc(c.email):""}</div>
+    ${ld.resumo?`<div style="margin-top:6px"><b>🧠 Memória:</b> ${esc(ld.resumo)}</div>`:'<div class="muted" style="margin-top:6px">Sem memória ainda — vai sendo preenchida a cada conversa.</div>'}
+  </div>` : "";
+  const bolhas = (ms||[]).map(m=>`<div class="bubble ${m.direcao==="entrada"?"bub-in":"bub-out"}">${m.assunto?"<b>"+esc(m.assunto)+"</b><br>":""}${esc(m.corpo||"")}<div class="bubmeta">${m.direcao==="entrada"?"📥 recebido":"📤 enviado"} · ${m.canal==="whatsapp"?"WhatsApp":"E-mail"} · ${new Date(m.criado_em).toLocaleString("pt-BR")}</div></div>`).join("") || '<div class="muted">Sem mensagens.</div>';
+  thread.innerHTML = perfil + bolhas;
   await sb.from("mensagens").update({status:"lida"}).eq("lead_id",leadId).eq("direcao","entrada").eq("status","nao_lida");
 }
 
