@@ -79,6 +79,9 @@ th{color:#6b7280;font-weight:600;font-size:12px}
 .bub-in{background:#f1f5f9;color:#111827;margin-right:auto;border-bottom-left-radius:3px}
 .bub-out{background:#dbeafe;color:#0c2a4d;margin-left:auto;border-bottom-right-radius:3px}
 .bubmeta{font-size:10px;color:#94a3b8;margin-top:3px}
+.score{display:inline-block;min-width:28px;text-align:center;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:800;margin-left:6px}
+.score.hi{background:#dcfce7;color:#15803d}.score.mid{background:#fef9c3;color:#854d0e}.score.lo{background:#fee2e2;color:#b91c1c}
+.etapa{display:inline-block;background:#f1f5f9;color:#475569;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:6px;text-transform:uppercase;letter-spacing:.3px}
 </style>
 </head>
 <body>
@@ -139,6 +142,9 @@ const $ = s => document.querySelector(s);
 const brl = n => "R$ " + Number(n||0).toLocaleString("pt-BR");
 const esc = s => (""+(s==null?"":s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const show = (el,on)=>{ el.style.display = on ? "block" : "none"; };
+const scoreOf = l => { const m=/score[:\s]*([0-9]{1,3})/i.exec((l&&l.observacoes)||""); return m?Math.min(100,+m[1]):null; };
+const scoreBadge = s => s==null?"":'<span class="score '+(s>=70?"hi":s>=40?"mid":"lo")+'" title="Score do lead (0-100)">'+s+'</span>';
+const etapaLbl = e => e?'<span class="etapa">'+esc((""+e).replace(/_/g," "))+'</span>':"";
 let PAPEL = "cliente";
 
 $("#loginForm").addEventListener("submit", async (e)=>{
@@ -225,15 +231,16 @@ async function viewConteudo(){
 
 async function viewEquipe(){
   const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
-  const [cli,neg,leads,apr,tar,logs,met,msgIn] = await Promise.all([
+  const [cli,neg,leads,apr,tar,logs,met,msgIn,outrAll] = await Promise.all([
     sb.from("clientes").select("id,nome,servicos,mrr,status"),
     sb.from("negocios").select("estagio,valor_mensal"),
-    sb.from("leads").select("status"),
+    sb.from("leads").select("status,observacoes"),
     sb.from("aprovacoes").select("tipo,titulo,solicitante,status").eq("status","pendente"),
     sb.from("tarefas").select("status"),
     sb.from("agent_logs").select("agente,acao,resultado,criado_em").order("criado_em",{ascending:false}).limit(8),
     sb.from("metricas").select("chave,valor,clientes(nome)").order("criado_em",{ascending:false}).limit(8),
     sb.from("mensagens").select("lead_id,direcao").eq("direcao","entrada").limit(3000),
+    sb.from("outreach").select("etapa,status"),
   ]);
   const clientes=cli.data||[], negocios=neg.data||[], aprov=apr.data||[];
   const mrr=clientes.filter(c=>c.status==="ativo").reduce((s,c)=>s+Number(c.mrr||0),0);
@@ -250,6 +257,11 @@ async function viewEquipe(){
   const fechados=ativos;
   const pct=(a,b)=>b?Math.round(a/b*100):0;
   const ticket=ativos?Math.round(mrr/ativos):0;
+  const _scores=(leads.data||[]).map(scoreOf).filter(x=>x!=null);
+  const scoreMed=_scores.length?Math.round(_scores.reduce((a,b)=>a+b,0)/_scores.length):null;
+  const oc={}; (outrAll.data||[]).forEach(o=>{const e=o.etapa||"outro"; oc[e]=oc[e]||{}; oc[e][o.status]=(oc[e][o.status]||0)+1;});
+  const _ord=["d0_primeiro_contato","d2_followup_leve","d5_valor","d9_breakup","resposta_auto"];
+  const ocKeys=[..._ord.filter(k=>oc[k]),...Object.keys(oc).filter(k=>!_ord.includes(k)).sort()];
   const step=(label,val,sub)=>`<div class="kpi" style="text-align:center"><div class="label">${label}</div><div class="val" style="font-size:22px">${val}</div>${sub?'<div class="muted" style="font-size:11px">'+sub+'</div>':''}</div>`;
 
   v.innerHTML = `
@@ -270,11 +282,17 @@ async function viewEquipe(){
       ${step("Reunião/Proposta", reuniaoN, "")}
       ${step("Fechados", fechados, pct(fechados,reuniaoN)+"% das reuniões")}
     </div>
-    <div class="muted" style="font-size:12px">📈 Taxa de resposta: <b>${pct(responderam,totalLeads)}%</b> · Ticket médio: <b>${brl(ticket)}</b> · MRR ativo: <b>${brl(mrr)}</b> · Pipeline aberto: <b>${brl(pipeVal)}</b></div>
+    <div class="muted" style="font-size:12px">📈 Taxa de resposta: <b>${pct(responderam,totalLeads)}%</b> · Ticket médio: <b>${brl(ticket)}</b> · Score médio dos leads: <b>${scoreMed==null?"—":scoreMed+"/100"}</b> · MRR ativo: <b>${brl(mrr)}</b> · Pipeline aberto: <b>${brl(pipeVal)}</b></div>
   </div>
   <div class="card">
     <h2>⏳ Fila de aprovações</h2>
     ${aprov.length? aprov.map(a=>`<div class="appr"><div><b>${esc(a.titulo)}</b><div class="muted">${esc(a.tipo)} · ${esc(a.solicitante)}</div></div></div>`).join("") : '<div class="muted">Nada pendente.</div>'}
+  </div>
+  <div class="card">
+    <h2>📨 Cadência de prospecção (D0 → D9)</h2>
+    ${ocKeys.length?`<table><thead><tr><th>Etapa</th><th>Rascunho</th><th>Aprovado</th><th>Enviado</th><th>Descartado</th></tr></thead><tbody>
+    ${ocKeys.map(k=>`<tr><td>${etapaLbl(k)}</td><td>${oc[k].rascunho||0}</td><td>${oc[k].aprovado||0}</td><td style="color:#15803d;font-weight:700">${oc[k].enviado||0}</td><td class="muted">${oc[k].descartado||0}</td></tr>`).join("")}
+    </tbody></table>`:'<div class="muted">Sem outreach ainda — o Prospector monta a cadência D0/D2/D5/D9 a cada execução.</div>'}
   </div>
   <div class="grid2">
     <div class="card"><h2>📊 Pipeline</h2>
@@ -527,7 +545,7 @@ async function openMessage(id, seq){
 
 async function viewC360(){
   const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
-  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status").order("ultimo_contato",{ascending:false,nullsFirst:false}).limit(300);
+  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status,observacoes").order("ultimo_contato",{ascending:false,nullsFirst:false}).limit(300);
   const leads=data||[];
   v.innerHTML = `<div class="grid2" style="grid-template-columns:320px 1fr">
     <div class="card">
@@ -535,7 +553,7 @@ async function viewC360(){
       <input id="c360search" placeholder="Buscar por nome ou empresa…" style="margin-bottom:10px">
       <div class="convlist" id="c360list">
       ${leads.map(l=>`<div class="convitem" data-c360="${l.id}" data-search="${esc((l.nome||"")+" "+(l.empresa||"")).toLowerCase()}">
-        <div><b>${esc(l.nome||"")}</b><div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div></div>
+        <div><b>${esc(l.nome||"")}</b>${scoreBadge(scoreOf(l))}<div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div></div>
         <span class="pill s-${esc(l.status||"")}">${esc(l.status||"")}</span>
       </div>`).join("")||'<div class="muted">Nenhum contato ainda.</div>'}
       </div>
@@ -577,13 +595,14 @@ async function openC360(leadId){
   <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
     <div><h2 style="margin:0">${esc(lead.empresa||lead.nome||"")}</h2>
     <div class="muted">${esc(lead.nome||"")}${lead.segmento?" · "+esc(lead.segmento):""}</div></div>
-    <span class="pill s-${esc(lead.status||"")}">${esc(lead.status||"")}</span>
+    <span>${scoreBadge(scoreOf(lead))} <span class="pill s-${esc(lead.status||"")}">${esc(lead.status||"")}</span></span>
   </div>
   <div class="muted" style="margin:6px 0 12px">${c.telefone?"📱 "+esc(c.telefone)+"  ":""}${c.email?"✉️ "+esc(c.email)+"  ":""}${c.instagram?"📷 "+esc(c.instagram):""}</div>
 
   <div style="background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px">
     <b>🧠 Memória do relacionamento:</b><br>${lead.resumo?esc(lead.resumo):'<span class="muted">Sem memória ainda — preenchida automaticamente a cada conversa.</span>'}
   </div>
+  ${lead.diagnostico?`<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px"><b>🔬 Diagnóstico:</b> ${esc(lead.diagnostico)}</div>`:""}
   <div class="muted" style="margin-bottom:12px;font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:10px">
     <span>🕒 Último contato: ${lead.ultimo_contato?new Date(lead.ultimo_contato).toLocaleString("pt-BR"):"—"}</span>
     <span>🔁 Follow-ups: ${lead.followups_enviados||0}</span>
@@ -611,7 +630,7 @@ async function openC360(leadId){
       ${ativ.length?ativ.map(a=>`<div class="log"><b>${esc(a.tipo||"")}</b> ${esc(a.resumo||"")}<div class="r">${esc(a.responsavel||"")} · ${new Date(a.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem atividades.</div>'}
     </div>
     <div class="card"><h2>✉️ Outreach</h2>
-      ${outr.length?outr.map(o=>`<div class="log"><b>${esc(o.assunto||o.etapa||"")}</b><div class="r"><span class="pill s-${esc(o.status)}">${esc(o.status)}</span> · ${new Date(o.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem outreach.</div>'}
+      ${outr.length?outr.map(o=>`<div class="log">${etapaLbl(o.etapa)}<b>${esc(o.assunto||"")}</b><div class="r"><span class="pill s-${esc(o.status)}">${esc(o.status)}</span> · ${new Date(o.criado_em).toLocaleString("pt-BR")}</div></div>`).join(""):'<div class="muted">Sem outreach.</div>'}
     </div>
   </div>
 
@@ -661,14 +680,14 @@ async function openConversa(leadId){
 
 async function viewKanban(){
   const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
-  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status").order("criado_em",{ascending:false}).limit(300);
+  const { data } = await sb.from("leads").select("id,nome,empresa,segmento,status,observacoes").order("criado_em",{ascending:false}).limit(300);
   const leads=data||[];
   const cols=[["novo","Novos"],["contatado","Contatados"],["qualificado","Qualificados"],["descartado","Descartados"]];
   v.innerHTML = `<div class="card"><h2>🗂️ Kanban de qualificação de leads</h2>
     <div class="kanban">
     ${cols.map(([key,label])=>`<div class="kcol"><h3>${label} (${leads.filter(l=>l.status===key).length})</h3>
       ${leads.filter(l=>l.status===key).map(l=>`<div class="kcard">
-        <b>${esc(l.nome||"")}</b><div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div>
+        <b>${esc(l.nome||"")}</b>${scoreBadge(scoreOf(l))}<div class="muted">${esc(l.empresa||"")}${l.segmento?" · "+esc(l.segmento):""}</div>
         <select data-kstatus="${l.id}" style="margin-top:6px;padding:4px;font-size:11px;width:100%">
           ${cols.map(([k,lb])=>`<option value="${k}" ${k===l.status?"selected":""}>${lb}</option>`).join("")}
         </select>
@@ -684,7 +703,7 @@ async function viewAprov(){
   const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
   const [apr, drafts] = await Promise.all([
     sb.from("aprovacoes").select("*").eq("status","pendente").order("criado_em",{ascending:false}),
-    sb.from("outreach").select("id,assunto,corpo,lead_id,leads(nome,contato)").eq("status","rascunho").order("criado_em",{ascending:false}).limit(50),
+    sb.from("outreach").select("id,etapa,assunto,corpo,lead_id,leads(nome,contato,observacoes)").eq("status","rascunho").order("criado_em",{ascending:false}).limit(50),
   ]);
   const aprs=apr.data||[], ds=drafts.data||[];
   v.innerHTML = `
@@ -698,7 +717,7 @@ async function viewAprov(){
   <div class="card">
     <h2>✉️ Primeiros contatos a aprovar (${ds.length})</h2>
     ${ds.length? ds.map(d=>`<div style="border:1px solid #eee;border-radius:9px;padding:12px;margin-bottom:10px">
-      <div><b>${esc(d.leads&&d.leads.nome||"")}</b> <span class="muted">&lt;${esc(d.leads&&d.leads.contato&&d.leads.contato.email||"sem e-mail")}&gt;</span></div>
+      <div>${etapaLbl(d.etapa)}<b>${esc(d.leads&&d.leads.nome||"")}</b>${scoreBadge(scoreOf(d.leads))} <span class="muted">&lt;${esc(d.leads&&d.leads.contato&&d.leads.contato.email||"sem e-mail")}&gt;</span></div>
       <div style="font-size:13px;margin:4px 0"><b>${esc(d.assunto||"")}</b></div>
       <div class="muted" style="white-space:pre-wrap;font-size:12px;max-height:120px;overflow:auto">${esc(d.corpo||"")}</div>
       <div style="margin-top:8px"><button class="btn sm ok" data-d-send="${d.id}">Aprovar e enviar</button> <button class="btn sm sec" data-d-no="${d.id}">Descartar</button></div>
