@@ -176,8 +176,10 @@ async function boot(){
   $("#who").innerHTML = esc(nome) + ' <span class="badge">' + esc(PAPEL) + '</span>';
 
   if(PAPEL === "admin" || PAPEL === "equipe"){
-    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabC360">Cliente 360</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabConteudo">Conteúdo</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
+    $("#nav").innerHTML = '<button id="tabPainel" class="active">Painel</button><button id="tabWorkflow">Workflow</button><button id="tabAgentes">Agentes</button><button id="tabC360">Cliente 360</button><button id="tabConversas">Conversas</button><button id="tabKanban">Kanban</button><button id="tabConteudo">Conteúdo</button><button id="tabAprov">Aprovações</button><button id="tabFila">Fila</button><button id="tabCanais">Canais</button>';
     $("#tabPainel").onclick = ()=>{ setTab("painel"); viewEquipe(); };
+    $("#tabWorkflow").onclick = ()=>{ setTab("workflow"); viewWorkflow(); };
+    $("#tabAgentes").onclick = ()=>{ setTab("agentes"); viewAgentes(); };
     $("#tabC360").onclick = ()=>{ setTab("c360"); viewC360(); };
     $("#tabConversas").onclick = ()=>{ setTab("conversas"); viewConversas(); };
     $("#tabKanban").onclick = ()=>{ setTab("kanban"); viewKanban(); };
@@ -192,7 +194,77 @@ async function boot(){
   }
 }
 function setTab(t){
-  [["Painel","painel"],["C360","c360"],["Conversas","conversas"],["Kanban","kanban"],["Conteudo","conteudo"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+  [["Painel","painel"],["Workflow","workflow"],["Agentes","agentes"],["C360","c360"],["Conversas","conversas"],["Kanban","kanban"],["Conteudo","conteudo"],["Aprov","aprov"],["Fila","fila"],["Canais","canais"]].forEach(([id,key])=>{ const el=$("#tab"+id); if(el) el.classList.toggle("active", t===key); });
+}
+
+async function viewWorkflow(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data:d, error } = await sb.rpc("fn_dash_workflow");
+  if(error){ v.innerHTML='<div class="card"><div class="msg err">Erro ao carregar: '+esc(error.message)+'</div></div>'; return; }
+  const cad={}; (d.cad||[]).forEach(c=>cad[c.lab]=c.n);
+  const et={d0_primeiro_contato:"D0",d2_followup_leve:"D2",d5_valor:"D5",d9_breakup:"D9",primeiro_contato:"legado"};
+  const node=(emo,ti,badge,val,sub,g,warn)=>`<div class="wf-node${warn?' wf-warn':''}">${warn?'<span class="wf-pin">⚠ você</span>':''}<div class="wf-emo">${emo}</div><div class="wf-ti">${esc(ti)}</div><span class="wf-badge">${esc(badge)}</span><div class="wf-val">${val}</div><div class="wf-sub">${esc(sub||"")}</div><div class="wf-g">${esc(g||"")}</div></div>`;
+  const ar='<div class="wf-arrow">→</div>';
+  const A=[node("🎯","Prospecção","Prospector",d.novos,"leads novos","10–15/dia · score ≥40"),node("✍️","Cadência","Prospector",d.rascunhos,"rascunhos","D0/D2/D5/D9"),node("⏳","Aprovação","Você",d.rascunhos,"aguardando","WhatsApp≥75 e e-mail≥70 auto",d.rascunhos>0),node("📤","Envio","Backend",d.enviados,"enviados","SMTP + Evolution"),node("💬","Conversa","Bia",d.contatados,"em conversa","fila "+d.fila_pendente),node("✅","Qualificado","Bia",d.qualificados,"qualificados","move o funil"),node("🤝","Negócio","Closer",d.neg_abertos,brl(d.pipeline),"propõe · você assina",d.neg_abertos>0),node("💎","Cliente","Você",d.clientes,brl(d.mrr)+" MRR","onboarding → ativo")].join(ar);
+  const B=[node("📅","Estratégia","Social",d.b_ideia,"ideias","Seg"),node("✍️","Produção","Social",d.b_produzindo,"produzindo","10h/15h"),node("🖼️","Publicar","Você",d.b_aprovacao,"p/ publicar","áudio+seed+boost",d.b_aprovacao>0),node("📣","Publicado","Você",d.b_publicado,"no ar",""),node("🤝","Engajamento","Engajam.",d.b_dms,"DMs","3×/dia"),node("📈","Revisão","Analista","·","métricas","semanal")].join(ar);
+  const chips=Object.keys(et).filter(k=>cad[k]).map(k=>`<span class="wf-chip">${et[k]}: ${cad[k]}</span>`).join(" ")||"—";
+  v.innerHTML=`<style>
+  .wf-flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 2px}
+  .wf-node{flex:0 0 auto;width:150px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:11px;position:relative;display:flex;flex-direction:column;gap:5px}
+  .wf-warn{border-color:#f6c66b;background:#fffdf6;box-shadow:0 0 0 3px rgba(217,119,6,.10)}
+  .wf-pin{position:absolute;top:-9px;right:-6px;background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px}
+  .wf-emo{font-size:18px}.wf-ti{font-weight:700;font-size:13px}
+  .wf-badge{font-size:10px;font-weight:700;color:#fff;background:#1F3864;border-radius:999px;padding:2px 7px;width:fit-content}
+  .wf-val{font-size:24px;font-weight:800}.wf-sub{font-size:11px;color:#6b7280;margin-top:-3px}
+  .wf-g{font-size:10px;color:#9ca3af;border-top:1px dashed #eee;padding-top:5px;margin-top:auto}
+  .wf-arrow{align-self:center;color:#cbd5e1;font-size:20px;padding:0 4px;font-weight:700}
+  .wf-chip{background:#eef2ff;color:#3730a3;border-radius:6px;padding:2px 8px;font-weight:600;font-size:11px}
+  </style>
+  <div class="card"><h2>🛠️ Fluxo A · Outbound — da prospecção ao cliente</h2><div class="wf-flow">${A}</div>
+   <div class="muted" style="margin-top:8px;font-size:12px">Rascunhos por etapa: ${chips}</div></div>
+  <div class="card"><h2>📸 Fluxo B · Inbound — Instagram</h2><div class="wf-flow">${B}</div>
+   <div class="muted" style="margin-top:8px;font-size:12px">↪ DMs viram lead e entram na Conversa da Bia · ${d.b_leads_ig} lead(s) via DM.</div></div>`;
+}
+
+async function viewAgentes(){
+  const v=$("#view"); v.innerHTML='<div class="muted" style="padding:20px">Carregando…</div>';
+  const { data:d, error } = await sb.rpc("fn_dash_agentes");
+  if(error){ v.innerHTML='<div class="card"><div class="msg err">Erro ao carregar: '+esc(error.message)+'</div></div>'; return; }
+  const META={"Prospector":["🎯","Acha e pontua clínicas"],"bia":["💬","Responde e move o funil"],"Closer":["🤝","Reunião → proposta"],"Gerente":["🗒️","Briefing + abre tarefas"],"Gerente de Conteúdo":["📅","Estratégia de Instagram"],"Criador de Conteúdo":["✍️","Produz os posts"],"Engajamento Instagram":["📣","Follows, comentários, DMs"],"Analista Instagram":["📈","Métricas de Instagram"],"Analista Comercial":["🧠","Aprendizado comercial"],"Fila":["📤","Envio (servidor)"],"Webhook":["🔁","Webhooks (servidor)"]};
+  const ago=(iso)=>{ if(!iso)return "—"; const s=(Date.now()-new Date(iso).getTime())/1000; if(s<3600)return "há "+Math.max(1,Math.floor(s/60))+" min"; if(s<86400)return "há "+Math.floor(s/3600)+" h"; return "há "+Math.floor(s/86400)+"d"; };
+  const hoje={}; (d.atividade||[]).forEach(a=>hoje[a.agente]=a.hoje);
+  const cards=(d.saude||[]).filter(s=>META[s.agente]).map(s=>{ const m=META[s.agente]; const st=s.erros_24h>0?"err":(s.eventos_24h>0?"on":"off"); return `<div class="ag-card"><div class="ag-top"><span class="ag-emo">${m[0]}</span><div><div class="ag-nm">${esc(s.agente)}</div><div class="ag-ds">${esc(m[1])}</div></div></div><div class="ag-meta"><span class="ag-dot ag-${st}"></span>${s.erros_24h>0?('<b style="color:#b91c1c">'+s.erros_24h+' erro</b>'):"ok"} · ${hoje[s.agente]||0} hoje · ${ago(s.ultimo)}</div></div>`; }).join("");
+  const faixa=(d.por_faixa||[]);
+  const ap=d.aprendizado||{};
+  const feed=(d.feed||[]).map(f=>`<tr><td class="muted" style="white-space:nowrap;vertical-align:top">${new Date(f.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${esc(f.agente)}</b> <span class="muted">${esc(f.acao||"")}</span><br>${esc((f.resultado||"").slice(0,160))}</td></tr>`).join("");
+  v.innerHTML=`<style>
+  .ag-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  @media(max-width:700px){.ag-kpis{grid-template-columns:repeat(2,1fr)}}
+  .ag-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:760px){.ag-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.ag-grid{grid-template-columns:1fr}}
+  .ag-card{border:1px solid #e5e7eb;border-radius:11px;padding:11px;display:flex;flex-direction:column;gap:8px}
+  .ag-top{display:flex;gap:9px;align-items:flex-start}.ag-emo{font-size:19px}
+  .ag-nm{font-weight:700;font-size:13px}.ag-ds{color:#6b7280;font-size:11.5px}
+  .ag-meta{font-size:11.5px;color:#374151;border-top:1px dashed #eee;padding-top:7px}
+  .ag-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .ag-on{background:#16a34a}.ag-off{background:#cbd5e1}.ag-err{background:#ef4444}
+  .ag-bar{display:grid;grid-template-columns:54px 1fr 50px;gap:8px;align-items:center;font-size:12px;margin:5px 0}
+  .ag-track{background:#eef2f7;border-radius:6px;height:8px;overflow:hidden}.ag-fill{display:block;height:100%;background:#1F3864}
+  </style>
+  <div class="ag-kpis">
+   <div class="kpi"><div class="val">${d.enviados_total?Math.round((d.resp_rate||0)*100)+"%":"—"}</div><div class="label">Taxa de resposta</div></div>
+   <div class="kpi"><div class="val">${d.enviados_total||0}</div><div class="label">Abordagens enviadas</div></div>
+   <div class="kpi"><div class="val amber">${d.aprovacoes_pend||0}</div><div class="label">Aprovações pendentes</div></div>
+   <div class="kpi"><div class="val">${d.calibracoes||0}</div><div class="label">Calibrações p/ aprovar</div></div>
+  </div>
+  <div class="card"><h2>🤖 Agentes — saúde e atividade (24h)</h2><div class="ag-grid">${cards||'<div class="muted">sem dados</div>'}</div></div>
+  <div class="card"><h2>🧠 Aprendizado</h2>
+   <div class="muted" style="font-size:12px;margin-bottom:6px">Resposta por faixa de score (quanto mais alto, melhor deve converter):</div>
+   ${faixa.length?faixa.map(f=>`<div class="ag-bar"><span>${esc(f.faixa)}</span><span class="ag-track"><span class="ag-fill" style="width:${f.env?Math.round(f.resp/f.env*100):0}%"></span></span><span>${f.resp}/${f.env}</span></div>`).join(""):'<div class="muted">sem respostas registradas ainda</div>'}
+   <div class="muted" style="font-size:12px;margin-top:10px">${esc(ap.status||(ap.amostra?("taxa "+Math.round(((ap.amostra||{}).taxa_resposta||0)*100)+"%"):"aguardando dados"))}${ap.atualizado?(" · atualizado "+esc((""+ap.atualizado).slice(0,16))):""}. O Analista Comercial reescreve isto toda segunda.</div>
+  </div>
+  <div class="card"><h2>📜 Últimas ações dos agentes</h2><table><tbody>${feed||'<tr><td class="muted">—</td></tr>'}</tbody></table></div>`;
 }
 
 async function viewConteudo(){
